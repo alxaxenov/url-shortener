@@ -11,6 +11,11 @@ import (
 
 const basePath = "http://localhost:8080"
 
+type ShortenerServiceInt interface {
+	AddURL(string) (string, error)
+	GetURL(string) (string, error)
+}
+
 type ShortenerServiceSt struct {
 	repo repository.ShortenerRepo
 }
@@ -43,4 +48,4 @@ func (s *ShortenerServiceSt) GetURL(short string) (string, error) {
 	return s.repo.GetValue(short)
 }
 
-var ShortenerService ShortenerServiceSt = ShortenerServiceSt{memory.InMemoryRepo}
+var ShortenerService ShortenerServiceInt = &ShortenerServiceSt{memory.InMemoryRepo}

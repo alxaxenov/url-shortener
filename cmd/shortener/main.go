@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	h := &handler.ShortenerHandler{Service: &service.ShortenerService}
+	h := &handler.ShortenerHandler{Service: service.ShortenerService}
 
 	http.Handle("/", middlewares.MethodVerification(http.MethodPost)(http.HandlerFunc(h.AddValue)))
 	http.Handle("/{id}", middlewares.MethodVerification(http.MethodGet)(http.HandlerFunc(h.GetValue)))
