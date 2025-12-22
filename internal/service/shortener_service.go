@@ -11,11 +11,11 @@ import (
 
 const basePath = "http://localhost:8080"
 
-type shortenerService struct {
+type ShortenerServiceSt struct {
 	repo repository.ShortenerRepo
 }
 
-func (s *shortenerService) AddURL(u string) (string, error) {
+func (s *ShortenerServiceSt) AddURL(u string) (string, error) {
 	if exist, err := s.repo.GetValue(u); err == nil {
 		return exist, nil
 	}
@@ -34,13 +34,13 @@ func (s *shortenerService) AddURL(u string) (string, error) {
 	return joined, nil
 }
 
-func (s *shortenerService) getShort(url string) string {
+func (s *ShortenerServiceSt) getShort(url string) string {
 	hash := sha256.Sum256([]byte(url))
 	return hex.EncodeToString(hash[:])[:8]
 }
 
-func (s *shortenerService) GetURL(short string) (string, error) {
+func (s *ShortenerServiceSt) GetURL(short string) (string, error) {
 	return s.repo.GetValue(short)
 }
 
-var ShortenerService shortenerService = shortenerService{memory.InMemoryRepo}
+var ShortenerService ShortenerServiceSt = ShortenerServiceSt{memory.InMemoryRepo}
