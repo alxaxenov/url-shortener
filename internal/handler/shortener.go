@@ -33,15 +33,15 @@ func AddValue(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetValue(w http.ResponseWriter, r *http.Request) {
-	//if r.Header.Get("content-type") != "text/plain" {
-	//	http.Error(w, "Unexpected content-type", http.StatusBadRequest)
-	//	return
-	//}
+	if r.Header.Get("content-type") != "text/plain" {
+		http.Error(w, "Unexpected content-type", http.StatusBadRequest)
+		return
+	}
 	u, err := service.ShortenerService.GetURL(r.PathValue("id"))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	}
 	w.Header().Set("content-type", "text/plain")
+	w.Header().Set("Location", u)
 	w.WriteHeader(http.StatusTemporaryRedirect)
-	io.WriteString(w, u)
 }
