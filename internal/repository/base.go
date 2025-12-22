@@ -1,4 +1,4 @@
-package shortener_repo
+package repository
 
 type ShortenerRepo interface {
 	SetValue(string, string) error

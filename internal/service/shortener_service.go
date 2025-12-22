@@ -1,18 +1,18 @@
-package shortener_service
+package service
 
 import (
 	"crypto/sha256"
 	"encoding/hex"
 	"net/url"
 
-	"github.com/alxaxenov/url-shortener/tree/v2/internal/repository/shortener_repo"
-	"github.com/alxaxenov/url-shortener/tree/v2/internal/repository/shortener_repo/in_memory"
+	"github.com/alxaxenov/url-shortener/tree/v2/internal/repository"
+	"github.com/alxaxenov/url-shortener/tree/v2/internal/repository/memory"
 )
 
 const basePath = "http://localhost:8080"
 
 type shortenerService struct {
-	repo shortener_repo.ShortenerRepo
+	repo repository.ShortenerRepo
 }
 
 func (s *shortenerService) AddURL(u string) (string, error) {
@@ -20,14 +20,14 @@ func (s *shortenerService) AddURL(u string) (string, error) {
 		return exist, nil
 	}
 
-	hash_url := s.getShort(u)
+	hashURL := s.getShort(u)
 
-	joined, err := url.JoinPath(basePath, hash_url)
+	joined, err := url.JoinPath(basePath, hashURL)
 	if err != nil {
 		return "", err
 	}
 
-	if err := s.repo.SetValue(hash_url, u); err != nil {
+	if err := s.repo.SetValue(hashURL, u); err != nil {
 		return "", err
 	}
 
@@ -43,4 +43,4 @@ func (s *shortenerService) GetURL(short string) (string, error) {
 	return s.repo.GetValue(short)
 }
 
-var ShortenerService shortenerService = shortenerService{in_memory.InMemoryRepo}
+var ShortenerService shortenerService = shortenerService{memory.InMemoryRepo}

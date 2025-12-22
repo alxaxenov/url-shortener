@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/alxaxenov/url-shortener/tree/v2/internal/service/shortener_service"
+	"github.com/alxaxenov/url-shortener/tree/v2/internal/service"
 )
 
 func AddValue(w http.ResponseWriter, r *http.Request) {
@@ -23,7 +23,7 @@ func AddValue(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid body URL", http.StatusBadRequest)
 		return
 	}
-	short, err := shortener_service.ShortenerService.AddURL(string(b))
+	short, err := service.ShortenerService.AddURL(string(b))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
@@ -33,11 +33,11 @@ func AddValue(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetValue(w http.ResponseWriter, r *http.Request) {
-	if r.Header.Get("content-type") != "text/plain" {
-		http.Error(w, "Unexpected content-type", http.StatusBadRequest)
-		return
-	}
-	u, err := shortener_service.ShortenerService.GetURL(r.PathValue("id"))
+	//if r.Header.Get("content-type") != "text/plain" {
+	//	http.Error(w, "Unexpected content-type", http.StatusBadRequest)
+	//	return
+	//}
+	u, err := service.ShortenerService.GetURL(r.PathValue("id"))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	}
