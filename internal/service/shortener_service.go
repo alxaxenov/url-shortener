@@ -5,11 +5,10 @@ import (
 	"encoding/hex"
 	"net/url"
 
+	"github.com/alxaxenov/url-shortener/tree/v2/internal/config"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/repository"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/repository/memory"
 )
-
-const basePath = "http://localhost:8080"
 
 type ShortenerServiceInt interface {
 	AddURL(string) (string, error)
@@ -27,7 +26,7 @@ func (s *ShortenerServiceSt) AddURL(u string) (string, error) {
 
 	hashURL := s.getShort(u)
 
-	joined, err := url.JoinPath(basePath, hashURL)
+	joined, err := url.JoinPath(config.Flags.BasePath, hashURL)
 	if err != nil {
 		return "", err
 	}
