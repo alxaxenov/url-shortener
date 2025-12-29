@@ -196,7 +196,7 @@ func TestShortenerHandler_GetValue(t *testing.T) {
 					Once()
 			},
 			want: want{
-				statusCode: http.StatusBadRequest,
+				statusCode: http.StatusInternalServerError,
 				location:   "",
 			},
 		},
