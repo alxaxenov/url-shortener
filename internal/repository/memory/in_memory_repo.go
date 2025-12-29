@@ -21,5 +21,3 @@ func (r *inMemoryRepo) GetValue(k string) (string, error) {
 func NewInMemoryRepo() *inMemoryRepo {
 	return &inMemoryRepo{make(map[string]string)}
 }
-
-var InMemoryRepo *inMemoryRepo = NewInMemoryRepo()

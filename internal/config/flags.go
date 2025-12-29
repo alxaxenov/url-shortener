@@ -1,44 +1,40 @@
 package config
 
 import (
-	"errors"
 	"flag"
+	"fmt"
 	"net/url"
 )
 
-type FlagsSt struct {
+type Flags struct {
 	Addr     string
 	BasePath string
 }
 
-func newFlags() *FlagsSt {
-	return &FlagsSt{
+func newFlags() *Flags {
+	return &Flags{
 		Addr:     ":8080",
 		BasePath: "http://localhost:8080",
 	}
 }
 
-var Flags = newFlags()
-
-func ParseFlags() {
-	flag.StringVar(&Flags.Addr, "a", ":8080", "server listen address")
+func ParseFlags() *Flags {
+	flags := newFlags()
+	flag.StringVar(&flags.Addr, "a", ":8080", "server listen address")
 	flag.Func(
 		"b",
 		"base path for shortened urls (default \"http://localhost:8080\")",
-		func(flagValue string) error {
-			if flagValue == "" {
-				Flags.Addr = ":8080"
-				return nil
-			}
-			data, err := url.ParseRequestURI(flagValue)
+		func(basePath string) error {
+			data, err := url.ParseRequestURI(basePath)
 			if err != nil {
-				return err
+				return fmt.Errorf("url parse error: %w", err)
 			}
 			if data.Scheme != "http" && data.Scheme != "https" {
-				return errors.New("url protocol missing")
+				return fmt.Errorf("url protocol missing: %v", basePath)
 			}
-			Flags.BasePath = flagValue
+			flags.BasePath = basePath
 			return nil
 		})
 	flag.Parse()
+	return flags
 }

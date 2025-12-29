@@ -2,14 +2,18 @@ package handler
 
 import (
 	"io"
+	"log"
 	"net/http"
 	"net/url"
-
-	"github.com/alxaxenov/url-shortener/tree/v2/internal/service"
 )
 
+type ShortenerService interface {
+	AddURL(string) (string, error)
+	GetURL(string) (string, error)
+}
+
 type ShortenerHandler struct {
-	Service service.ShortenerServiceInt
+	Service ShortenerService
 }
 
 func (h *ShortenerHandler) AddValue(w http.ResponseWriter, r *http.Request) {
@@ -29,7 +33,9 @@ func (h *ShortenerHandler) AddValue(w http.ResponseWriter, r *http.Request) {
 	}
 	short, err := h.Service.AddURL(string(b))
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		log.Println("AddValue service.AddURL error:", err)
+		text := http.StatusText(http.StatusInternalServerError)
+		http.Error(w, text, http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("content-type", "text/plain")
@@ -40,7 +46,9 @@ func (h *ShortenerHandler) AddValue(w http.ResponseWriter, r *http.Request) {
 func (h *ShortenerHandler) GetValue(w http.ResponseWriter, r *http.Request) {
 	u, err := h.Service.GetURL(r.PathValue("id"))
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		log.Println("GetValue service.GetURL error:", err)
+		text := http.StatusText(http.StatusInternalServerError)
+		http.Error(w, text, http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("Location", u)

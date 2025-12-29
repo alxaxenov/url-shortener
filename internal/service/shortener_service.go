@@ -1,32 +1,29 @@
 package service
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
+	"crypto/rand"
+	"encoding/binary"
 	"net/url"
-
-	"github.com/alxaxenov/url-shortener/tree/v2/internal/config"
-	"github.com/alxaxenov/url-shortener/tree/v2/internal/repository"
-	"github.com/alxaxenov/url-shortener/tree/v2/internal/repository/memory"
 )
 
-type ShortenerServiceInt interface {
-	AddURL(string) (string, error)
-	GetURL(string) (string, error)
+type ShortenerRepo interface {
+	SetValue(string, string) error
+	GetValue(string) (string, error)
 }
 
-type ShortenerServiceSt struct {
-	repo repository.ShortenerRepo
+type ShortenerService struct {
+	repo        ShortenerRepo
+	basePath    string
+	base62Chars string
 }
 
-func (s *ShortenerServiceSt) AddURL(u string) (string, error) {
-	if exist, err := s.repo.GetValue(u); err == nil {
-		return exist, nil
+func (s *ShortenerService) AddURL(u string) (string, error) {
+	hashURL, err := s.getShort()
+	if err != nil {
+		return "", err
 	}
 
-	hashURL := s.getShort(u)
-
-	joined, err := url.JoinPath(config.Flags.BasePath, hashURL)
+	joined, err := url.JoinPath(s.basePath, hashURL)
 	if err != nil {
 		return "", err
 	}
@@ -38,13 +35,29 @@ func (s *ShortenerServiceSt) AddURL(u string) (string, error) {
 	return joined, nil
 }
 
-func (s *ShortenerServiceSt) getShort(url string) string {
-	hash := sha256.Sum256([]byte(url))
-	return hex.EncodeToString(hash[:])[:8]
+func (s *ShortenerService) getShort() (string, error) {
+	b := make([]byte, 6)
+	_, err := rand.Read(b)
+	if err != nil {
+		return "", err
+	}
+	num := binary.BigEndian.Uint64(append([]byte{0, 0}, b...))
+	var res = make([]byte, 0, 8)
+	for num > 0 {
+		res = append(res, s.base62Chars[num%62])
+		num /= 62
+	}
+	return string(res), nil
 }
 
-func (s *ShortenerServiceSt) GetURL(short string) (string, error) {
+func (s *ShortenerService) GetURL(short string) (string, error) {
 	return s.repo.GetValue(short)
 }
 
-var ShortenerService ShortenerServiceInt = &ShortenerServiceSt{memory.InMemoryRepo}
+func NewShortenerService(repo ShortenerRepo, basePath string) *ShortenerService {
+	return &ShortenerService{
+		repo:        repo,
+		basePath:    basePath,
+		base62Chars: "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz",
+	}
+}

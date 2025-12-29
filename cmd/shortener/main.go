@@ -1,26 +1,26 @@
 package main
 
 import (
-	"fmt"
-	"net/http"
+	"log"
 
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/config"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/handler"
+	"github.com/alxaxenov/url-shortener/tree/v2/internal/repository/memory"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/service"
-	"github.com/go-chi/chi/v5"
 )
 
 func main() {
-	config.ParseFlags()
-	h := &handler.ShortenerHandler{Service: service.ShortenerService}
-
-	r := chi.NewRouter()
-	r.Post("/", h.AddValue)
-	r.Get("/{id}", h.GetValue)
-
-	fmt.Println("Running server on", config.Flags.Addr)
-	err := http.ListenAndServe(config.Flags.Addr, r)
-	if err != nil {
-		panic(err)
+	if err := run(); err != nil {
+		log.Fatal(err)
 	}
+}
+
+func run() error {
+	flags := config.ParseFlags()
+
+	inMemoryRepo := memory.NewInMemoryRepo()
+	srv := service.NewShortenerService(inMemoryRepo, flags.BasePath)
+	h := &handler.ShortenerHandler{Service: srv}
+
+	return handler.Serve(flags.Addr, h)
 }
