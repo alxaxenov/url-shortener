@@ -34,8 +34,7 @@ func (h *ShortenerHandler) AddValue(w http.ResponseWriter, r *http.Request) {
 	short, err := h.Service.AddURL(string(b))
 	if err != nil {
 		log.Println("AddValue service.AddURL error:", err)
-		text := http.StatusText(http.StatusInternalServerError)
-		http.Error(w, text, http.StatusInternalServerError)
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("content-type", "text/plain")
@@ -47,8 +46,7 @@ func (h *ShortenerHandler) GetValue(w http.ResponseWriter, r *http.Request) {
 	u, err := h.Service.GetURL(r.PathValue("id"))
 	if err != nil {
 		log.Println("GetValue service.GetURL error:", err)
-		text := http.StatusText(http.StatusInternalServerError)
-		http.Error(w, text, http.StatusInternalServerError)
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("Location", u)
