@@ -1,9 +1,10 @@
 package handler
 
 import (
-	"log"
 	"net/http"
 
+	"github.com/alxaxenov/url-shortener/tree/v2/internal/logger"
+	"github.com/alxaxenov/url-shortener/tree/v2/internal/middleware"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -14,9 +15,12 @@ type Handler interface {
 
 func Serve(addr string, h Handler) error {
 	r := chi.NewRouter()
+
+	r.Use(middleware.WithLogging)
+
 	r.Post("/", h.AddValue)
 	r.Get("/{id}", h.GetValue)
 
-	log.Println("Running server on", addr)
+	logger.Logger.Info("Running server on", addr)
 	return http.ListenAndServe(addr, r)
 }

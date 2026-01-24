@@ -5,13 +5,17 @@ import (
 
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/config"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/handler"
+	"github.com/alxaxenov/url-shortener/tree/v2/internal/logger"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/repository/memory"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/service"
 )
 
 func main() {
-	if err := run(); err != nil {
+	if err := logger.Initialize(); err != nil {
 		log.Fatal(err)
+	}
+	if err := run(); err != nil {
+		logger.Logger.Fatal(err)
 	}
 }
 

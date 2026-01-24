@@ -3,9 +3,9 @@ package config
 import (
 	"flag"
 	"fmt"
-	"log"
 	"net/url"
 
+	"github.com/alxaxenov/url-shortener/tree/v2/internal/logger"
 	"github.com/caarlos0/env/v11"
 )
 
@@ -39,10 +39,10 @@ func ParseConfig() *Config {
 	flag.Parse()
 	err := env.Parse(&cfg)
 	if err != nil {
-		log.Fatal(err)
+		logger.Logger.Fatal(err)
 	}
 	if err := cfg.checkBasePath(); err != nil {
-		log.Fatal(err)
+		logger.Logger.Fatal(err)
 	}
 	return &cfg
 }

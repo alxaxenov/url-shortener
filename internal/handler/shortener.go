@@ -2,9 +2,10 @@ package handler
 
 import (
 	"io"
-	"log"
 	"net/http"
 	"net/url"
+
+	"github.com/alxaxenov/url-shortener/tree/v2/internal/logger"
 )
 
 type ShortenerService interface {
@@ -33,7 +34,7 @@ func (h *ShortenerHandler) AddValue(w http.ResponseWriter, r *http.Request) {
 	}
 	short, err := h.Service.AddURL(string(b))
 	if err != nil {
-		log.Println("AddValue service.AddURL error:", err)
+		logger.Logger.Info("AddValue service.AddURL error:", err)
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
@@ -45,7 +46,7 @@ func (h *ShortenerHandler) AddValue(w http.ResponseWriter, r *http.Request) {
 func (h *ShortenerHandler) GetValue(w http.ResponseWriter, r *http.Request) {
 	u, err := h.Service.GetURL(r.PathValue("id"))
 	if err != nil {
-		log.Println("GetValue service.GetURL error:", err)
+		logger.Logger.Info("GetValue service.GetURL error:", err)
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
