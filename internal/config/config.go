@@ -33,9 +33,7 @@ func (c Config) checkBasePath() error {
 func ParseConfig() *Config {
 	cfg := Config{}
 	flag.StringVar(&cfg.Addr, "a", ":8080", "server listen address")
-	if cfg.BasePath == "" {
-		flag.StringVar(&cfg.BasePath, "b", basePathDefault, "base path")
-	}
+	flag.StringVar(&cfg.BasePath, "b", basePathDefault, "base path")
 	flag.Parse()
 	err := env.Parse(&cfg)
 	if err != nil {

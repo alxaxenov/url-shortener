@@ -5,7 +5,10 @@ import (
 	"net/http"
 	"net/url"
 
+	"encoding/json"
+
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/logger"
+	"github.com/alxaxenov/url-shortener/tree/v2/internal/model"
 )
 
 type ShortenerService interface {
@@ -52,4 +55,32 @@ func (h *ShortenerHandler) GetValue(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Location", u)
 	w.WriteHeader(http.StatusTemporaryRedirect)
+}
+
+func (h *ShortenerHandler) AddValueJSON(w http.ResponseWriter, r *http.Request) {
+	req := model.AddURLRequest{}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if _, err := url.ParseRequestURI(req.URL); err != nil {
+		http.Error(w, "invalid body URL", http.StatusBadRequest)
+		return
+	}
+	short, err := h.Service.AddURL(req.URL)
+	if err != nil {
+		logger.Logger.Info("AddValueJSON service.AddURL error:", err)
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+	respData, err := json.Marshal(model.AddURLResponse{Result: short})
+	if err != nil {
+		logger.Logger.Info("AddValueJSON response marshal error:", err)
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("content-type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	w.Write(respData)
 }
