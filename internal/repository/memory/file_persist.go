@@ -1,0 +1,94 @@
+package memory
+
+import (
+	"bufio"
+	"encoding/json"
+	"io"
+	"strings"
+
+	"github.com/alxaxenov/url-shortener/tree/v2/internal/logger"
+)
+
+//go:generate mockery --name FactoryWriterInt --with-expecter=true --inpackage
+type FactoryWriterInt interface {
+	NewWriter(string) (WriterInt, error)
+}
+
+//go:generate mockery --name WriterInt --with-expecter=true --inpackage
+type WriterInt interface {
+	Close() error
+	Write([]byte) (int, error)
+}
+
+//go:generate mockery --name FactoryReaderInt --with-expecter=true --inpackage
+type FactoryReaderInt interface {
+	NewReader(string) (ReaderInt, error)
+}
+
+//go:generate mockery --name ReaderInt --with-expecter=true --inpackage
+type ReaderInt interface {
+	Close() error
+	io.Reader
+}
+
+type filePersist struct {
+	filePath      string
+	writerFactory FactoryWriterInt
+	readerFactory FactoryReaderInt
+}
+
+func (f *filePersist) addData(k string, v string) error {
+	producer, err := f.writerFactory.NewWriter(f.filePath)
+	if err != nil {
+		return err
+	}
+	defer producer.Close()
+
+	bytes, err := json.Marshal(urlData{ShortURL: k, OriginalURL: v})
+	if err != nil {
+		return err
+	}
+	bytes = append(bytes, '\n')
+	if _, err := producer.Write(bytes); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (f *filePersist) getData() ([]urlData, error) {
+	consumer, err := f.readerFactory.NewReader(f.filePath)
+	if err != nil {
+		return nil, err
+	}
+	if consumer == nil {
+		return nil, nil
+	}
+	defer consumer.Close()
+
+	scanner := bufio.NewScanner(consumer)
+	var records []urlData
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		var data urlData
+		if err := json.Unmarshal([]byte(line), &data); err != nil {
+			logger.Logger.Infof("persist parse error %v", err)
+			continue
+		}
+		if !data.isValid() {
+			logger.Logger.Infof("persist parse data not valid %v", line)
+			continue
+		}
+		records = append(records, data)
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+	return records, nil
+}
+
+func NewFilePersist(path string) persistInt {
+	return &filePersist{filePath: path, writerFactory: &NewWriter{}, readerFactory: &NewReader{}}
+}

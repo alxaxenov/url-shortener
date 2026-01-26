@@ -22,7 +22,12 @@ func main() {
 func run() error {
 	cfg := config.ParseConfig()
 
-	inMemoryRepo := memory.NewInMemoryRepo()
+	persistFile := memory.NewFilePersist(cfg.FileStoragePath)
+	inMemoryRepo, err := memory.NewInMemoryRepo(persistFile)
+	if err != nil {
+		logger.Logger.Fatal(err)
+	}
+
 	srv := service.NewShortenerService(inMemoryRepo, cfg.BasePath)
 	h := &handler.ShortenerHandler{Service: srv}
 
