@@ -12,8 +12,9 @@ import (
 var basePathDefault = "http://localhost:8080"
 
 type Config struct {
-	Addr     string `env:"SERVER_ADDRESS"`
-	BasePath string `env:"BASE_URL"`
+	Addr            string `env:"SERVER_ADDRESS"`
+	BasePath        string `env:"BASE_URL"`
+	FileStoragePath string `env:"FILE_STORAGE_PATH"`
 }
 
 func (c Config) checkBasePath() error {
@@ -34,6 +35,7 @@ func ParseConfig() *Config {
 	cfg := Config{}
 	flag.StringVar(&cfg.Addr, "a", ":8080", "server listen address")
 	flag.StringVar(&cfg.BasePath, "b", basePathDefault, "base path")
+	flag.StringVar(&cfg.FileStoragePath, "f", "file_storage.txt", "file storage path")
 	flag.Parse()
 	err := env.Parse(&cfg)
 	if err != nil {

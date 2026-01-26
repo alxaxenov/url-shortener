@@ -6,6 +6,7 @@ import (
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/config"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/handler"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/logger"
+	"github.com/alxaxenov/url-shortener/tree/v2/internal/repository"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/repository/memory"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/service"
 )
@@ -23,6 +24,9 @@ func run() error {
 	cfg := config.ParseConfig()
 
 	inMemoryRepo := memory.NewInMemoryRepo()
+
+	repository.LoadFromFile(inMemoryRepo, cfg.FileStoragePath)
+
 	srv := service.NewShortenerService(inMemoryRepo, cfg.BasePath)
 	h := &handler.ShortenerHandler{Service: srv}
 
