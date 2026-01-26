@@ -17,6 +17,7 @@ type Handler interface {
 func Serve(addr string, h Handler) error {
 	r := chi.NewRouter()
 
+	r.Use(middleware.GzipMiddleware)
 	r.Use(middleware.WithLogging)
 
 	r.Post("/", h.AddValue)
