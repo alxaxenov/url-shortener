@@ -5,22 +5,31 @@ import (
 
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/config"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/handler"
+	"github.com/alxaxenov/url-shortener/tree/v2/internal/logger"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/repository/memory"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/service"
 )
 
 func main() {
-	if err := run(); err != nil {
+	if err := logger.Initialize(); err != nil {
 		log.Fatal(err)
+	}
+	if err := run(); err != nil {
+		logger.Logger.Fatal(err)
 	}
 }
 
 func run() error {
-	flags := config.ParseFlags()
+	cfg := config.ParseConfig()
 
-	inMemoryRepo := memory.NewInMemoryRepo()
-	srv := service.NewShortenerService(inMemoryRepo, flags.BasePath)
+	persistFile := memory.NewFilePersist(cfg.FileStoragePath)
+	inMemoryRepo, err := memory.NewInMemoryRepo(persistFile)
+	if err != nil {
+		logger.Logger.Fatal(err)
+	}
+
+	srv := service.NewShortenerService(inMemoryRepo, cfg.BasePath)
 	h := &handler.ShortenerHandler{Service: srv}
 
-	return handler.Serve(flags.Addr, h)
+	return handler.Serve(cfg.Addr, h)
 }
