@@ -1,11 +1,13 @@
 package main
 
 import (
+	"context"
 	"log"
 
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/config"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/handler"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/logger"
+	"github.com/alxaxenov/url-shortener/tree/v2/internal/repository/db"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/repository/memory"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/service"
 )
@@ -28,8 +30,14 @@ func run() error {
 		logger.Logger.Fatal(err)
 	}
 
+	dbConn, err := db.GetDBConnection(cfg.DBDSN, context.Background())
+	if err != nil {
+		logger.Logger.Fatal(err)
+	}
+	defer dbConn.Close()
+
 	srv := service.NewShortenerService(inMemoryRepo, cfg.BasePath)
-	h := &handler.ShortenerHandler{Service: srv}
+	h := &handler.ShortenerHandler{Service: srv, DB: dbConn}
 
 	return handler.Serve(cfg.Addr, h)
 }

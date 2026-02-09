@@ -1,9 +1,12 @@
 package handler
 
 import (
+	"context"
+	"database/sql"
 	"io"
 	"net/http"
 	"net/url"
+	"time"
 
 	"encoding/json"
 
@@ -18,6 +21,7 @@ type ShortenerService interface {
 
 type ShortenerHandler struct {
 	Service ShortenerService
+	DB      *sql.DB
 }
 
 func (h *ShortenerHandler) AddValue(w http.ResponseWriter, r *http.Request) {
@@ -83,4 +87,19 @@ func (h *ShortenerHandler) AddValueJSON(w http.ResponseWriter, r *http.Request) 
 	w.Header().Set("content-type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	w.Write(respData)
+}
+
+func (h *ShortenerHandler) Ping(w http.ResponseWriter, r *http.Request) {
+	status := http.StatusOK
+	if h.DB == nil {
+		status = http.StatusInternalServerError
+	} else {
+		ctx := r.Context()
+		newCtx, cancel := context.WithTimeout(ctx, 1*time.Second)
+		defer cancel()
+		if err := h.DB.PingContext(newCtx); err != nil {
+			status = http.StatusInternalServerError
+		}
+	}
+	w.WriteHeader(status)
 }

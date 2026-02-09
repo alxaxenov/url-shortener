@@ -15,6 +15,7 @@ type Config struct {
 	Addr            string `env:"SERVER_ADDRESS"`
 	BasePath        string `env:"BASE_URL"`
 	FileStoragePath string `env:"FILE_STORAGE_PATH"`
+	DBDSN           string `env:"DATABASE_DSN"`
 }
 
 func (c Config) checkBasePath() error {
@@ -36,6 +37,7 @@ func ParseConfig() *Config {
 	flag.StringVar(&cfg.Addr, "a", ":8080", "server listen address")
 	flag.StringVar(&cfg.BasePath, "b", basePathDefault, "base path")
 	flag.StringVar(&cfg.FileStoragePath, "f", "file_storage.txt", "file storage path")
+	flag.StringVar(&cfg.DBDSN, "d", "", "database connection string")
 	flag.Parse()
 	err := env.Parse(&cfg)
 	if err != nil {
