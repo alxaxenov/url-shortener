@@ -12,6 +12,7 @@ type DBTX interface {
 	QueryRowContext(context.Context, string, ...interface{}) *sql.Row
 	PingContext(context.Context) error
 	Close() error
+	Begin() (*sql.Tx, error)
 }
 
 type ConnectorInt interface {

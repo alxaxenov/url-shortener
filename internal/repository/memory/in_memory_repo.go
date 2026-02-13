@@ -76,6 +76,16 @@ func (r *inMemoryRepo) loadFromPersist() error {
 	return nil
 }
 
+func (r *inMemoryRepo) LoadBatch(ctx context.Context, batches []service.UploadBatch) error {
+	for _, batch := range batches {
+		err := r.SetValue(ctx, batch.Short, batch.Origin)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func NewInMemoryRepo(persist persistInt) (service.ShortenerRepo, error) {
 	repo := &inMemoryRepo{make(map[string]Value), persist}
 	err := repo.loadFromPersist()

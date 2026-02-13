@@ -13,6 +13,7 @@ type Handler interface {
 	GetValue(w http.ResponseWriter, r *http.Request)
 	AddValueJSON(w http.ResponseWriter, r *http.Request)
 	Ping(w http.ResponseWriter, r *http.Request)
+	LoadBatch(w http.ResponseWriter, r *http.Request)
 }
 
 func Serve(addr string, h Handler) error {
@@ -23,6 +24,7 @@ func Serve(addr string, h Handler) error {
 
 	r.Post("/", h.AddValue)
 	r.Post("/api/shorten", h.AddValueJSON)
+	r.Post("/api/shorten/batch", h.LoadBatch)
 	r.Get("/{id}", h.GetValue)
 	r.Get("/ping", h.Ping)
 
