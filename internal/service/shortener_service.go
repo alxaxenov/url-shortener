@@ -1,14 +1,15 @@
 package service
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/binary"
 	"net/url"
 )
 
 type ShortenerRepo interface {
-	SetValue(string, string) error
-	GetValue(string) (string, error)
+	SetValue(context.Context, string, string) error
+	GetValue(context.Context, string) (string, error)
 }
 
 type ShortenerService struct {
@@ -17,7 +18,7 @@ type ShortenerService struct {
 	base62Chars string
 }
 
-func (s *ShortenerService) AddURL(u string) (string, error) {
+func (s *ShortenerService) AddURL(ctx context.Context, u string) (string, error) {
 	hashURL, err := s.getShort()
 	if err != nil {
 		return "", err
@@ -28,7 +29,7 @@ func (s *ShortenerService) AddURL(u string) (string, error) {
 		return "", err
 	}
 
-	if err := s.repo.SetValue(hashURL, u); err != nil {
+	if err := s.repo.SetValue(ctx, hashURL, u); err != nil {
 		return "", err
 	}
 
@@ -50,8 +51,8 @@ func (s *ShortenerService) getShort() (string, error) {
 	return string(res), nil
 }
 
-func (s *ShortenerService) GetURL(short string) (string, error) {
-	return s.repo.GetValue(short)
+func (s *ShortenerService) GetURL(ctx context.Context, short string) (string, error) {
+	return s.repo.GetValue(ctx, short)
 }
 
 func NewShortenerService(repo ShortenerRepo, basePath string) *ShortenerService {

@@ -2,7 +2,6 @@ package handler
 
 import (
 	"context"
-	"database/sql"
 	"io"
 	"net/http"
 	"net/url"
@@ -10,18 +9,20 @@ import (
 
 	"encoding/json"
 
+	"github.com/alxaxenov/url-shortener/tree/v2/internal/config/db"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/logger"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/model"
 )
 
+//go:generate mockery --name ShortenerService --with-expecter=true
 type ShortenerService interface {
-	AddURL(string) (string, error)
-	GetURL(string) (string, error)
+	AddURL(context.Context, string) (string, error)
+	GetURL(context.Context, string) (string, error)
 }
 
 type ShortenerHandler struct {
 	Service ShortenerService
-	DB      *sql.DB
+	DB      db.DBTX
 }
 
 func (h *ShortenerHandler) AddValue(w http.ResponseWriter, r *http.Request) {
@@ -39,7 +40,9 @@ func (h *ShortenerHandler) AddValue(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid body URL", http.StatusBadRequest)
 		return
 	}
-	short, err := h.Service.AddURL(string(b))
+	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+	defer cancel()
+	short, err := h.Service.AddURL(ctx, string(b))
 	if err != nil {
 		logger.Logger.Info("AddValue service.AddURL error:", err)
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
@@ -51,7 +54,9 @@ func (h *ShortenerHandler) AddValue(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *ShortenerHandler) GetValue(w http.ResponseWriter, r *http.Request) {
-	u, err := h.Service.GetURL(r.PathValue("id"))
+	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+	defer cancel()
+	u, err := h.Service.GetURL(ctx, r.PathValue("id"))
 	if err != nil {
 		logger.Logger.Info("GetValue service.GetURL error:", err)
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
@@ -72,7 +77,9 @@ func (h *ShortenerHandler) AddValueJSON(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, "invalid body URL", http.StatusBadRequest)
 		return
 	}
-	short, err := h.Service.AddURL(req.URL)
+	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+	defer cancel()
+	short, err := h.Service.AddURL(ctx, req.URL)
 	if err != nil {
 		logger.Logger.Info("AddValueJSON service.AddURL error:", err)
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io"
 	"strings"
+	"time"
 
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/logger"
 )
@@ -37,14 +38,15 @@ type filePersist struct {
 	readerFactory FactoryReaderInt
 }
 
-func (f *filePersist) addData(k string, v string) error {
+func (f *filePersist) addData(k string, v string, createdAt time.Time) error {
 	producer, err := f.writerFactory.NewWriter(f.filePath)
 	if err != nil {
 		return err
 	}
 	defer producer.Close()
 
-	bytes, err := json.Marshal(urlData{ShortURL: k, OriginalURL: v})
+	createdAtString := createdAt.Format(timeFormat)
+	bytes, err := json.Marshal(urlData{ShortURL: k, OriginalURL: v, CreatedAt: createdAtString})
 	if err != nil {
 		return err
 	}
