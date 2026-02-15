@@ -2,9 +2,9 @@ package handler
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net/http"
-	"net/url"
 	"time"
 
 	"encoding/json"
@@ -12,6 +12,7 @@ import (
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/config/db"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/logger"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/model"
+	"github.com/alxaxenov/url-shortener/tree/v2/internal/service"
 )
 
 //go:generate mockery --name ShortenerService --with-expecter=true
@@ -37,20 +38,26 @@ func (h *ShortenerHandler) AddValue(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if _, err := url.ParseRequestURI(string(b)); err != nil {
-		http.Error(w, "invalid body URL", http.StatusBadRequest)
-		return
-	}
 	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
 	defer cancel()
+	responseStatus := http.StatusCreated
 	short, err := h.Service.AddURL(ctx, string(b))
 	if err != nil {
 		logger.Logger.Info("AddValue service.AddURL error:", err)
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
+		var badURL *service.BadURL
+		var alreadyExists *service.AlreadyExists
+		if errors.As(err, &alreadyExists) {
+			responseStatus = http.StatusConflict
+		} else if errors.As(err, &badURL) {
+			http.Error(w, badURL.Error(), http.StatusBadRequest)
+			return
+		} else {
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
+		}
 	}
 	w.Header().Set("content-type", "text/plain")
-	w.WriteHeader(http.StatusCreated)
+	w.WriteHeader(responseStatus)
 	io.WriteString(w, short)
 }
 
@@ -73,18 +80,23 @@ func (h *ShortenerHandler) AddValueJSON(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-
-	if _, err := url.ParseRequestURI(req.URL); err != nil {
-		http.Error(w, "invalid body URL", http.StatusBadRequest)
-		return
-	}
 	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
 	defer cancel()
+	responseStatus := http.StatusCreated
 	short, err := h.Service.AddURL(ctx, req.URL)
 	if err != nil {
 		logger.Logger.Info("AddValueJSON service.AddURL error:", err)
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
+		var badURL *service.BadURL
+		var alreadyExists *service.AlreadyExists
+		if errors.As(err, &alreadyExists) {
+			responseStatus = http.StatusConflict
+		} else if errors.As(err, &badURL) {
+			http.Error(w, badURL.Error(), http.StatusBadRequest)
+			return
+		} else {
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
+		}
 	}
 	respData, err := json.Marshal(model.AddURLResponse{Result: short})
 	if err != nil {
@@ -93,7 +105,7 @@ func (h *ShortenerHandler) AddValueJSON(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	w.Header().Set("content-type", "application/json")
-	w.WriteHeader(http.StatusCreated)
+	w.WriteHeader(responseStatus)
 	w.Write(respData)
 }
 
@@ -123,7 +135,12 @@ func (h *ShortenerHandler) LoadBatch(w http.ResponseWriter, r *http.Request) {
 	data, err := h.Service.LoadBatch(newCtx, req)
 	if err != nil {
 		logger.Logger.Info("LoadBatch service.LoadBatch error:", err)
-		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		var badURL *service.BadURL
+		if errors.As(err, &badURL) {
+			http.Error(w, badURL.Error(), http.StatusBadRequest)
+			return
+		}
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 	respData, err := json.Marshal(model.LoadBatchResponse(data))
@@ -135,5 +152,4 @@ func (h *ShortenerHandler) LoadBatch(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("content-type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	w.Write(respData)
-
 }

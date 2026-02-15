@@ -3,6 +3,7 @@ package memory
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/logger"
@@ -36,13 +37,16 @@ type inMemoryRepo struct {
 	persist persistInt
 }
 
-func (r *inMemoryRepo) SetValue(ctx context.Context, k string, v string) error {
+func (r *inMemoryRepo) SetValue(ctx context.Context, k string, v string) (string, error) {
 	createdAt := time.Now()
 	r.values[k] = Value{v, createdAt}
-	if r.persist == nil {
-		return nil
+	if r.persist != nil {
+		err := r.persist.addData(k, v, createdAt)
+		if err != nil {
+			return "", fmt.Errorf("ошибка записи в файл: %w", err)
+		}
 	}
-	return r.persist.addData(k, v, createdAt)
+	return k, nil
 }
 
 func (r *inMemoryRepo) GetValue(ctx context.Context, k string) (string, error) {
@@ -78,7 +82,7 @@ func (r *inMemoryRepo) loadFromPersist() error {
 
 func (r *inMemoryRepo) LoadBatch(ctx context.Context, batches []service.UploadBatch) error {
 	for _, batch := range batches {
-		err := r.SetValue(ctx, batch.Short, batch.Origin)
+		_, err := r.SetValue(ctx, batch.Short, batch.Origin)
 		if err != nil {
 			return err
 		}

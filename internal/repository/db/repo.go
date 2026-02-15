@@ -12,22 +12,26 @@ type DBRepo struct {
 	Connector db_pack.ConnectorInt
 }
 
-func (d *DBRepo) SetValue(ctx context.Context, short string, origin string) error {
+func (d *DBRepo) SetValue(ctx context.Context, short string, origin string) (string, error) {
 	db := d.Connector.GetDB()
 	datetime := time.Now()
-	_, err := db.ExecContext(
-		ctx, "INSERT INTO urls (short_url, original_url, created_at) VALUES($1, $2, $3)", short, origin, datetime)
+	row := db.QueryRowContext(
+		ctx,
+		"INSERT INTO urls (short_url, original_url, created_at) VALUES($1, $2, $3) ON CONFLICT (original_url) "+
+			"DO UPDATE SET original_url = EXCLUDED.original_url RETURNING short_url", short, origin, datetime)
+	var inserted string
+	err := row.Scan(&inserted)
 	if err != nil {
-		return err
+		return "", err
 	}
-	return nil
+	return inserted, nil
 }
 
 func (d *DBRepo) GetValue(ctx context.Context, short string) (string, error) {
 	db := d.Connector.GetDB()
-	rows := db.QueryRowContext(ctx, "SELECT original_url FROM urls WHERE short_url=$1", short)
+	row := db.QueryRowContext(ctx, "SELECT original_url FROM urls WHERE short_url=$1", short)
 	var originalURL string
-	if err := rows.Scan(&originalURL); err != nil {
+	if err := row.Scan(&originalURL); err != nil {
 		return "", err
 	}
 	return originalURL, nil

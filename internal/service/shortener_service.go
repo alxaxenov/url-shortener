@@ -4,13 +4,14 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/binary"
+	"fmt"
 	"net/url"
 
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/model"
 )
 
 type ShortenerRepo interface {
-	SetValue(context.Context, string, string) error
+	SetValue(context.Context, string, string) (string, error)
 	GetValue(context.Context, string) (string, error)
 	LoadBatch(context.Context, []UploadBatch) error
 }
@@ -22,21 +23,32 @@ type ShortenerService struct {
 }
 
 func (s *ShortenerService) AddURL(ctx context.Context, u string) (string, error) {
+	if _, err := url.ParseRequestURI(u); err != nil {
+		return "", NewBadURL(u, err)
+	}
+
 	hashURL, err := s.getShort()
 	if err != nil {
 		return "", err
 	}
 
-	joined, err := url.JoinPath(s.basePath, hashURL)
+	inserted, err := s.repo.SetValue(ctx, hashURL, u)
 	if err != nil {
 		return "", err
 	}
-
-	if err := s.repo.SetValue(ctx, hashURL, u); err != nil {
-		return "", err
+	if inserted == "" {
+		return "", fmt.Errorf("AddURL inserted is empty [%s]", u)
 	}
 
-	return joined, nil
+	joined, err := url.JoinPath(s.basePath, inserted)
+	if err != nil {
+		return "", err
+	}
+	var resultErr error
+	if inserted != hashURL {
+		resultErr = NewAlreadyExists(inserted, u)
+	}
+	return joined, resultErr
 }
 
 func (s *ShortenerService) getShort() (string, error) {
@@ -68,7 +80,7 @@ func (s *ShortenerService) LoadBatch(ctx context.Context, batches model.LoadBatc
 	var UploadBatches []UploadBatch
 	for _, batch := range batches {
 		if _, err := url.ParseRequestURI(batch.OriginalURL); err != nil {
-			return nil, err
+			return nil, NewBadURL(batch.OriginalURL, err)
 		}
 		hashURL, err := s.getShort()
 		if err != nil {

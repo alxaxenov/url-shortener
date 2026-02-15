@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/handler/mocks"
+	"github.com/alxaxenov/url-shortener/tree/v2/internal/service"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -71,7 +72,12 @@ func TestShortenerHandler_AddValue(t *testing.T) {
 		{
 			name: "parse body url error",
 			mocks: setupMock{
-				service: func(shortenerService *mocks.ShortenerService) {},
+				service: func(shortenerService *mocks.ShortenerService) {
+					shortenerService.EXPECT().
+						AddURL(mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("string")).
+						Return("", service.NewBadURL("incorrect URL", errors.New("parse error"))).
+						Once()
+				},
 				reader: func(mockReader *mocks.Reader) {
 					mockReader.EXPECT().
 						Read(mock.AnythingOfType("[]uint8")).
@@ -88,7 +94,7 @@ func TestShortenerHandler_AddValue(t *testing.T) {
 			want: want{
 				statusCode:  http.StatusBadRequest,
 				contentType: "text/plain; charset=utf-8",
-				body:        "invalid body URL\n",
+				body:        "Некорректный URL [incorrect URL]\n",
 			},
 		},
 		{
