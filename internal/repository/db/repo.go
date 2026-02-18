@@ -2,6 +2,8 @@ package db
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"time"
 
 	db_pack "github.com/alxaxenov/url-shortener/tree/v2/internal/config/db"
@@ -22,7 +24,7 @@ func (d *DBRepo) SetValue(ctx context.Context, short string, origin string) (str
 	var inserted string
 	err := row.Scan(&inserted)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("SetValue failed to insert url: %w", err)
 	}
 	return inserted, nil
 }
@@ -32,31 +34,29 @@ func (d *DBRepo) GetValue(ctx context.Context, short string) (string, error) {
 	row := db.QueryRowContext(ctx, "SELECT original_url FROM urls WHERE short_url=$1", short)
 	var originalURL string
 	if err := row.Scan(&originalURL); err != nil {
-		return "", err
+		return "", fmt.Errorf("GetValue failed to fetch url: %w", err)
 	}
 	return originalURL, nil
 }
 
-func (d *DBRepo) LoadBatch(ctx context.Context, batches []service.UploadBatch) error {
+func (d *DBRepo) SaveBatch(ctx context.Context, batches []service.UploadBatch) error {
 	db := d.Connector.GetDB()
-	tx, err := db.Begin()
-	if err != nil {
-		return err
-	}
-	stmt, err := tx.PrepareContext(ctx, "INSERT INTO urls (short_url, original_url, created_at) VALUES($1, $2, $3)")
-	if err != nil {
-		return err
-	}
-	defer stmt.Close()
 	createdAt := time.Now()
-	for _, batch := range batches {
-		_, err := stmt.ExecContext(ctx, batch.Short, batch.Origin, createdAt)
-		if err != nil {
-			tx.Rollback()
-			return err
-		}
+	valueStrings := make([]string, 0, len(batches))
+	valueArgs := make([]interface{}, 0, len(batches)*2)
+	for i, u := range batches {
+		valueStrings = append(valueStrings, fmt.Sprintf("($%d,$%d,$%d)", i*3+1, i*3+2, i*3+3))
+		valueArgs = append(valueArgs, u.Short, u.Origin, createdAt)
 	}
-	return tx.Commit()
+	query := fmt.Sprintf(
+		"INSERT INTO urls (short_url, original_url, created_at) VALUES %s",
+		strings.Join(valueStrings, ","),
+	)
+	_, err := db.ExecContext(ctx, query, valueArgs...)
+	if err != nil {
+		return fmt.Errorf("SaveBatch failed to insert url: %w", err)
+	}
+	return nil
 }
 
 func NewDBRepo(c db_pack.ConnectorInt) service.ShortenerRepo {

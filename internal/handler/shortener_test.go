@@ -74,7 +74,7 @@ func TestShortenerHandler_AddValue(t *testing.T) {
 			mocks: setupMock{
 				service: func(shortenerService *mocks.ShortenerService) {
 					shortenerService.EXPECT().
-						AddURL(mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("string")).
+						AddURL(mock.AnythingOfType("context.backgroundCtx"), mock.AnythingOfType("string")).
 						Return("", service.NewBadURL("incorrect URL", errors.New("parse error"))).
 						Once()
 				},
@@ -102,7 +102,7 @@ func TestShortenerHandler_AddValue(t *testing.T) {
 			mocks: setupMock{
 				service: func(shortenerService *mocks.ShortenerService) {
 					shortenerService.EXPECT().
-						AddURL(mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("string")).
+						AddURL(mock.AnythingOfType("context.backgroundCtx"), mock.AnythingOfType("string")).
 						Return("", errors.New("service AddURL error")).
 						Once()
 				},
@@ -130,7 +130,7 @@ func TestShortenerHandler_AddValue(t *testing.T) {
 			mocks: setupMock{
 				service: func(shortenerService *mocks.ShortenerService) {
 					shortenerService.EXPECT().
-						AddURL(mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("string")).
+						AddURL(mock.AnythingOfType("context.backgroundCtx"), mock.AnythingOfType("string")).
 						Return("http://myservice.com/abcdef", nil).
 						Once()
 				},
@@ -196,7 +196,7 @@ func TestShortenerHandler_GetValue(t *testing.T) {
 			name: "get url service error",
 			setupMock: func(mockService *mocks.ShortenerService) {
 				mockService.EXPECT().
-					GetURL(mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("string")).
+					GetURL(mock.AnythingOfType("context.backgroundCtx"), mock.AnythingOfType("string")).
 					Return("", errors.New("service GetURL error")).
 					Once()
 			},
@@ -209,7 +209,7 @@ func TestShortenerHandler_GetValue(t *testing.T) {
 			name: "success",
 			setupMock: func(mockService *mocks.ShortenerService) {
 				mockService.EXPECT().
-					GetURL(mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("string")).
+					GetURL(mock.AnythingOfType("context.backgroundCtx"), mock.AnythingOfType("string")).
 					Return("http://ptmnjp.ru/xqbm8n/ekei4oj2yxfa", nil).
 					Once()
 			},

@@ -137,12 +137,12 @@ func (_c *ShortenerService_GetURL_Call) RunAndReturn(run func(context.Context, s
 	return _c
 }
 
-// LoadBatch provides a mock function with given fields: _a0, _a1
-func (_m *ShortenerService) LoadBatch(_a0 context.Context, _a1 model.LoadBatchRequest) ([]model.BatchResponse, error) {
+// SaveBatch provides a mock function with given fields: _a0, _a1
+func (_m *ShortenerService) SaveBatch(_a0 context.Context, _a1 model.LoadBatchRequest) ([]model.BatchResponse, error) {
 	ret := _m.Called(_a0, _a1)
 
 	if len(ret) == 0 {
-		panic("no return value specified for LoadBatch")
+		panic("no return value specified for SaveBatch")
 	}
 
 	var r0 []model.BatchResponse
@@ -167,31 +167,31 @@ func (_m *ShortenerService) LoadBatch(_a0 context.Context, _a1 model.LoadBatchRe
 	return r0, r1
 }
 
-// ShortenerService_LoadBatch_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'LoadBatch'
-type ShortenerService_LoadBatch_Call struct {
+// ShortenerService_SaveBatch_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SaveBatch'
+type ShortenerService_SaveBatch_Call struct {
 	*mock.Call
 }
 
-// LoadBatch is a helper method to define mock.On call
+// SaveBatch is a helper method to define mock.On call
 //   - _a0 context.Context
 //   - _a1 model.LoadBatchRequest
-func (_e *ShortenerService_Expecter) LoadBatch(_a0 interface{}, _a1 interface{}) *ShortenerService_LoadBatch_Call {
-	return &ShortenerService_LoadBatch_Call{Call: _e.mock.On("LoadBatch", _a0, _a1)}
+func (_e *ShortenerService_Expecter) SaveBatch(_a0 interface{}, _a1 interface{}) *ShortenerService_SaveBatch_Call {
+	return &ShortenerService_SaveBatch_Call{Call: _e.mock.On("SaveBatch", _a0, _a1)}
 }
 
-func (_c *ShortenerService_LoadBatch_Call) Run(run func(_a0 context.Context, _a1 model.LoadBatchRequest)) *ShortenerService_LoadBatch_Call {
+func (_c *ShortenerService_SaveBatch_Call) Run(run func(_a0 context.Context, _a1 model.LoadBatchRequest)) *ShortenerService_SaveBatch_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(context.Context), args[1].(model.LoadBatchRequest))
 	})
 	return _c
 }
 
-func (_c *ShortenerService_LoadBatch_Call) Return(_a0 []model.BatchResponse, _a1 error) *ShortenerService_LoadBatch_Call {
+func (_c *ShortenerService_SaveBatch_Call) Return(_a0 []model.BatchResponse, _a1 error) *ShortenerService_SaveBatch_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *ShortenerService_LoadBatch_Call) RunAndReturn(run func(context.Context, model.LoadBatchRequest) ([]model.BatchResponse, error)) *ShortenerService_LoadBatch_Call {
+func (_c *ShortenerService_SaveBatch_Call) RunAndReturn(run func(context.Context, model.LoadBatchRequest) ([]model.BatchResponse, error)) *ShortenerService_SaveBatch_Call {
 	_c.Call.Return(run)
 	return _c
 }

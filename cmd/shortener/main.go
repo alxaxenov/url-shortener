@@ -24,16 +24,18 @@ func main() {
 }
 
 func run() error {
-	cfg := config.ParseConfig()
+	cfg, err := config.ParseConfig()
+	if err != nil {
+		return err
+	}
 
 	var dbConn db.DBTX
 	var repo service.ShortenerRepo
-	var err error
 	if cfg.DBDSN != "" {
 		connector := pg.NewPGConnector(cfg.DBDSN)
-		dbConn, err = pg.ConnectAndSetup(context.Background(), connector)
+		dbConn, err = connector.Open(context.Background())
 		if err != nil {
-			logger.Logger.Fatal(err)
+			return err
 		}
 		defer dbConn.Close()
 		repo = repo_db.NewDBRepo(connector)
@@ -42,7 +44,7 @@ func run() error {
 		persistFile := memory.NewFilePersist(cfg.FileStoragePath)
 		repo, err = memory.NewInMemoryRepo(persistFile)
 		if err != nil {
-			logger.Logger.Fatal(err)
+			return err
 		}
 	}
 

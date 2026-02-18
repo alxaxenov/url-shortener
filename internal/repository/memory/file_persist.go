@@ -3,6 +3,7 @@ package memory
 import (
 	"bufio"
 	"encoding/json"
+	"fmt"
 	"io"
 	"strings"
 	"time"
@@ -10,23 +11,23 @@ import (
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/logger"
 )
 
-//go:generate mockery --name FactoryWriterInt --with-expecter=true --inpackage
+//go:generate mockery --name FactoryWriterInt --with-expecter=true --inpackage --filename mock_factory_writer.go
 type FactoryWriterInt interface {
 	NewWriter(string) (WriterInt, error)
 }
 
-//go:generate mockery --name WriterInt --with-expecter=true --inpackage
+//go:generate mockery --name WriterInt --with-expecter=true --inpackage --filename mock_writer.go
 type WriterInt interface {
 	Close() error
 	Write([]byte) (int, error)
 }
 
-//go:generate mockery --name FactoryReaderInt --with-expecter=true --inpackage
+//go:generate mockery --name FactoryReaderInt --with-expecter=true --inpackage --filename mock_factory_reader.go
 type FactoryReaderInt interface {
 	NewReader(string) (ReaderInt, error)
 }
 
-//go:generate mockery --name ReaderInt --with-expecter=true --inpackage
+//go:generate mockery --name ReaderInt --with-expecter=true --inpackage --filename mock_reader.go
 type ReaderInt interface {
 	Close() error
 	io.Reader
@@ -48,7 +49,7 @@ func (f *filePersist) addData(k string, v string, createdAt time.Time) error {
 	createdAtString := createdAt.Format(timeFormat)
 	bytes, err := json.Marshal(urlData{ShortURL: k, OriginalURL: v, CreatedAt: createdAtString})
 	if err != nil {
-		return err
+		return fmt.Errorf("addData marshal url error: %w", err)
 	}
 	bytes = append(bytes, '\n')
 	if _, err := producer.Write(bytes); err != nil {
@@ -86,7 +87,7 @@ func (f *filePersist) getData() ([]urlData, error) {
 		records = append(records, data)
 	}
 	if err := scanner.Err(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("persist scanner error: %w", err)
 	}
 	return records, nil
 }

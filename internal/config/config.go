@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/url"
 
-	"github.com/alxaxenov/url-shortener/tree/v2/internal/logger"
 	"github.com/caarlos0/env/v11"
 )
 
@@ -32,7 +31,7 @@ func (c Config) checkBasePath() error {
 	return nil
 }
 
-func ParseConfig() *Config {
+func ParseConfig() (*Config, error) {
 	cfg := Config{}
 	flag.StringVar(&cfg.Addr, "a", ":8080", "server listen address")
 	flag.StringVar(&cfg.BasePath, "b", basePathDefault, "base path")
@@ -41,10 +40,10 @@ func ParseConfig() *Config {
 	flag.Parse()
 	err := env.Parse(&cfg)
 	if err != nil {
-		logger.Logger.Fatal(err)
+		return nil, fmt.Errorf("config parse error %w", err)
 	}
 	if err := cfg.checkBasePath(); err != nil {
-		logger.Logger.Fatal(err)
+		return nil, err
 	}
-	return &cfg
+	return &cfg, nil
 }

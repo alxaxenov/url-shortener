@@ -80,7 +80,7 @@ func (r *inMemoryRepo) loadFromPersist() error {
 	return nil
 }
 
-func (r *inMemoryRepo) LoadBatch(ctx context.Context, batches []service.UploadBatch) error {
+func (r *inMemoryRepo) SaveBatch(ctx context.Context, batches []service.UploadBatch) error {
 	for _, batch := range batches {
 		_, err := r.SetValue(ctx, batch.Short, batch.Origin)
 		if err != nil {

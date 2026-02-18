@@ -13,7 +13,7 @@ import (
 type ShortenerRepo interface {
 	SetValue(context.Context, string, string) (string, error)
 	GetValue(context.Context, string) (string, error)
-	LoadBatch(context.Context, []UploadBatch) error
+	SaveBatch(context.Context, []UploadBatch) error
 }
 
 type ShortenerService struct {
@@ -42,7 +42,7 @@ func (s *ShortenerService) AddURL(ctx context.Context, u string) (string, error)
 
 	joined, err := url.JoinPath(s.basePath, inserted)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("AddURL failed to join path %w", err)
 	}
 	var resultErr error
 	if inserted != hashURL {
@@ -55,7 +55,7 @@ func (s *ShortenerService) getShort() (string, error) {
 	b := make([]byte, 6)
 	_, err := rand.Read(b)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("getShort rand error: %w", err)
 	}
 	num := binary.BigEndian.Uint64(append([]byte{0, 0}, b...))
 	var res = make([]byte, 0, 8)
@@ -75,7 +75,7 @@ type UploadBatch struct {
 	Origin string
 }
 
-func (s *ShortenerService) LoadBatch(ctx context.Context, batches model.LoadBatchRequest) ([]model.BatchResponse, error) {
+func (s *ShortenerService) SaveBatch(ctx context.Context, batches model.LoadBatchRequest) ([]model.BatchResponse, error) {
 	var resultBatches []model.BatchResponse
 	var UploadBatches []UploadBatch
 	for _, batch := range batches {
@@ -88,12 +88,12 @@ func (s *ShortenerService) LoadBatch(ctx context.Context, batches model.LoadBatc
 		}
 		joined, err := url.JoinPath(s.basePath, hashURL)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("SaveBatch failed to join path %w", err)
 		}
 		UploadBatches = append(UploadBatches, UploadBatch{hashURL, batch.OriginalURL})
 		resultBatches = append(resultBatches, model.BatchResponse{CorrelationID: batch.CorrelationID, ShortURL: joined})
 	}
-	if err := s.repo.LoadBatch(ctx, UploadBatches); err != nil {
+	if err := s.repo.SaveBatch(ctx, UploadBatches); err != nil {
 		return nil, err
 	}
 	return resultBatches, nil
