@@ -2,6 +2,7 @@ package memory
 
 import (
 	"errors"
+	"fmt"
 	"os"
 
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/logger"
@@ -17,7 +18,7 @@ func (c *NewReader) NewReader(filepath string) (ReaderInt, error) {
 	}
 	file, err := os.Open(filepath)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("NewReader open file error: %w", err)
 	}
 	return &reader{file: file}, nil
 }

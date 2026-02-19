@@ -8,8 +8,8 @@ import (
 
 	"testing"
 
-	h_mocks "github.com/alxaxenov/url-shortener/tree/v2/internal/handler/mocks"
-	service "github.com/alxaxenov/url-shortener/tree/v2/internal/service/mocks"
+	"github.com/alxaxenov/url-shortener/tree/v2/internal/handler/mocks"
+	"github.com/alxaxenov/url-shortener/tree/v2/internal/service"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -17,8 +17,8 @@ import (
 
 func TestShortenerHandler_AddValue(t *testing.T) {
 	type setupMock struct {
-		service func(*service.MockShortenerServiceInt)
-		reader  func(*h_mocks.Reader)
+		service func(shortenerService *mocks.ShortenerService)
+		reader  func(*mocks.Reader)
 	}
 	type args struct {
 		contentType string
@@ -37,8 +37,8 @@ func TestShortenerHandler_AddValue(t *testing.T) {
 		{
 			name: "wrong contect-type",
 			mocks: setupMock{
-				service: func(mockService *service.MockShortenerServiceInt) {},
-				reader:  func(mockReader *h_mocks.Reader) {},
+				service: func(shortenerService *mocks.ShortenerService) {},
+				reader:  func(mockReader *mocks.Reader) {},
 			},
 			args: args{
 				contentType: "application/json",
@@ -52,8 +52,8 @@ func TestShortenerHandler_AddValue(t *testing.T) {
 		{
 			name: "ReadALL error",
 			mocks: setupMock{
-				service: func(mockService *service.MockShortenerServiceInt) {},
-				reader: func(mockReader *h_mocks.Reader) {
+				service: func(shortenerService *mocks.ShortenerService) {},
+				reader: func(mockReader *mocks.Reader) {
 					mockReader.EXPECT().
 						Read(mock.AnythingOfType("[]uint8")).
 						Return(0, errors.New("reader test error")).
@@ -72,8 +72,13 @@ func TestShortenerHandler_AddValue(t *testing.T) {
 		{
 			name: "parse body url error",
 			mocks: setupMock{
-				service: func(mockService *service.MockShortenerServiceInt) {},
-				reader: func(mockReader *h_mocks.Reader) {
+				service: func(shortenerService *mocks.ShortenerService) {
+					shortenerService.EXPECT().
+						AddURL(mock.AnythingOfType("context.backgroundCtx"), mock.AnythingOfType("string")).
+						Return("", service.NewBadURL("incorrect URL", errors.New("parse error"))).
+						Once()
+				},
+				reader: func(mockReader *mocks.Reader) {
 					mockReader.EXPECT().
 						Read(mock.AnythingOfType("[]uint8")).
 						Return(len("not an url"), io.EOF).
@@ -89,19 +94,19 @@ func TestShortenerHandler_AddValue(t *testing.T) {
 			want: want{
 				statusCode:  http.StatusBadRequest,
 				contentType: "text/plain; charset=utf-8",
-				body:        "invalid body URL\n",
+				body:        "Некорректный URL [incorrect URL]\n",
 			},
 		},
 		{
 			name: "add url service error",
 			mocks: setupMock{
-				service: func(mockService *service.MockShortenerServiceInt) {
-					mockService.EXPECT().
-						AddURL(mock.AnythingOfType("string")).
+				service: func(shortenerService *mocks.ShortenerService) {
+					shortenerService.EXPECT().
+						AddURL(mock.AnythingOfType("context.backgroundCtx"), mock.AnythingOfType("string")).
 						Return("", errors.New("service AddURL error")).
 						Once()
 				},
-				reader: func(mockReader *h_mocks.Reader) {
+				reader: func(mockReader *mocks.Reader) {
 					mockReader.EXPECT().
 						Read(mock.AnythingOfType("[]uint8")).
 						Return(len("http://ptmnjp.ru/xqbm8n/ekei4oj2yxfa"), io.EOF).
@@ -123,13 +128,13 @@ func TestShortenerHandler_AddValue(t *testing.T) {
 		{
 			name: "created",
 			mocks: setupMock{
-				service: func(mockService *service.MockShortenerServiceInt) {
-					mockService.EXPECT().
-						AddURL(mock.AnythingOfType("string")).
+				service: func(shortenerService *mocks.ShortenerService) {
+					shortenerService.EXPECT().
+						AddURL(mock.AnythingOfType("context.backgroundCtx"), mock.AnythingOfType("string")).
 						Return("http://myservice.com/abcdef", nil).
 						Once()
 				},
-				reader: func(mockReader *h_mocks.Reader) {
+				reader: func(mockReader *mocks.Reader) {
 					mockReader.EXPECT().
 						Read(mock.AnythingOfType("[]uint8")).
 						Return(len("http://ptmnjp.ru/xqbm8n/ekei4oj2yxfa"), io.EOF).
@@ -151,9 +156,9 @@ func TestShortenerHandler_AddValue(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockService := service.NewMockShortenerServiceInt(t)
+			mockService := mocks.NewShortenerService(t)
 			tt.mocks.service(mockService)
-			mockReader := h_mocks.NewReader(t)
+			mockReader := mocks.NewReader(t)
 			tt.mocks.reader(mockReader)
 
 			h := &ShortenerHandler{
@@ -185,13 +190,13 @@ func TestShortenerHandler_GetValue(t *testing.T) {
 	tests := []struct {
 		name      string
 		want      want
-		setupMock func(*service.MockShortenerServiceInt)
+		setupMock func(*mocks.ShortenerService)
 	}{
 		{
 			name: "get url service error",
-			setupMock: func(mockService *service.MockShortenerServiceInt) {
+			setupMock: func(mockService *mocks.ShortenerService) {
 				mockService.EXPECT().
-					GetURL(mock.AnythingOfType("string")).
+					GetURL(mock.AnythingOfType("context.backgroundCtx"), mock.AnythingOfType("string")).
 					Return("", errors.New("service GetURL error")).
 					Once()
 			},
@@ -202,9 +207,9 @@ func TestShortenerHandler_GetValue(t *testing.T) {
 		},
 		{
 			name: "success",
-			setupMock: func(mockService *service.MockShortenerServiceInt) {
+			setupMock: func(mockService *mocks.ShortenerService) {
 				mockService.EXPECT().
-					GetURL(mock.AnythingOfType("string")).
+					GetURL(mock.AnythingOfType("context.backgroundCtx"), mock.AnythingOfType("string")).
 					Return("http://ptmnjp.ru/xqbm8n/ekei4oj2yxfa", nil).
 					Once()
 			},
@@ -216,7 +221,7 @@ func TestShortenerHandler_GetValue(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockService := service.NewMockShortenerServiceInt(t)
+			mockService := mocks.NewShortenerService(t)
 			tt.setupMock(mockService)
 			h := &ShortenerHandler{
 				Service: mockService,

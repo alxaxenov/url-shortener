@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/logger"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/middleware"
@@ -12,6 +13,8 @@ type Handler interface {
 	AddValue(w http.ResponseWriter, r *http.Request)
 	GetValue(w http.ResponseWriter, r *http.Request)
 	AddValueJSON(w http.ResponseWriter, r *http.Request)
+	Ping(w http.ResponseWriter, r *http.Request)
+	SaveBatch(w http.ResponseWriter, r *http.Request)
 }
 
 func Serve(addr string, h Handler) error {
@@ -20,9 +23,11 @@ func Serve(addr string, h Handler) error {
 	r.Use(middleware.GzipMiddleware)
 	r.Use(middleware.WithLogging)
 
-	r.Post("/", h.AddValue)
-	r.Post("/api/shorten", h.AddValueJSON)
-	r.Get("/{id}", h.GetValue)
+	r.Post("/", timeoutHandler(h.AddValue, 3*time.Second, "").ServeHTTP)
+	r.Post("/api/shorten", timeoutHandler(h.AddValueJSON, 3*time.Second, "").ServeHTTP)
+	r.Post("/api/shorten/batch", timeoutHandler(h.SaveBatch, 5*time.Second, "").ServeHTTP)
+	r.Get("/{id}", timeoutHandler(h.GetValue, 3*time.Second, "").ServeHTTP)
+	r.Get("/ping", timeoutHandler(h.Ping, 3*time.Second, "").ServeHTTP)
 
 	logger.Logger.Info("Running server on", addr)
 	return http.ListenAndServe(addr, r)

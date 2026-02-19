@@ -1,15 +1,21 @@
 package memory
 
 import (
+	"context"
 	"errors"
+	"fmt"
+	"time"
 
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/logger"
-	"github.com/alxaxenov/url-shortener/tree/v2/internal/repository"
+	"github.com/alxaxenov/url-shortener/tree/v2/internal/service"
 )
+
+var timeFormat = time.RFC3339
 
 type urlData struct {
 	ShortURL    string `json:"short_url"`
 	OriginalURL string `json:"original_url"`
+	CreatedAt   string `json:"created_at"`
 }
 
 func (d urlData) isValid() bool {
@@ -17,26 +23,35 @@ func (d urlData) isValid() bool {
 }
 
 type persistInt interface {
-	addData(string, string) error
+	addData(string, string, time.Time) error
 	getData() ([]urlData, error)
 }
 
+type Value struct {
+	original  string
+	createdAt time.Time
+}
+
 type inMemoryRepo struct {
-	values  map[string]string
+	values  map[string]Value
 	persist persistInt
 }
 
-func (r *inMemoryRepo) SetValue(k string, v string) error {
-	r.values[k] = v
-	if r.persist == nil {
-		return nil
+func (r *inMemoryRepo) SetValue(ctx context.Context, k string, v string) (string, error) {
+	createdAt := time.Now()
+	r.values[k] = Value{v, createdAt}
+	if r.persist != nil {
+		err := r.persist.addData(k, v, createdAt)
+		if err != nil {
+			return "", fmt.Errorf("ошибка записи в файл: %w", err)
+		}
 	}
-	return r.persist.addData(k, v)
+	return k, nil
 }
 
-func (r *inMemoryRepo) GetValue(k string) (string, error) {
+func (r *inMemoryRepo) GetValue(ctx context.Context, k string) (string, error) {
 	if v, ok := r.values[k]; ok {
-		return v, nil
+		return v.original, nil
 	}
 	return "", errors.New("key not found")
 }
@@ -55,13 +70,28 @@ func (r *inMemoryRepo) loadFromPersist() error {
 		return nil
 	}
 	for _, v := range data {
-		r.values[v.ShortURL] = v.OriginalURL
+		createdAt, err := time.Parse(timeFormat, v.CreatedAt)
+		if err != nil {
+			logger.Logger.Info("failed to parse created at time %s", v.CreatedAt)
+			continue
+		}
+		r.values[v.ShortURL] = Value{v.OriginalURL, createdAt}
 	}
 	return nil
 }
 
-func NewInMemoryRepo(persist persistInt) (repository.ShortenerRepo, error) {
-	repo := &inMemoryRepo{make(map[string]string), persist}
+func (r *inMemoryRepo) SaveBatch(ctx context.Context, batches []service.UploadBatch) error {
+	for _, batch := range batches {
+		_, err := r.SetValue(ctx, batch.Short, batch.Origin)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func NewInMemoryRepo(persist persistInt) (service.ShortenerRepo, error) {
+	repo := &inMemoryRepo{make(map[string]Value), persist}
 	err := repo.loadFromPersist()
 	return repo, err
 }

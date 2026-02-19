@@ -2,6 +2,7 @@ package memory
 
 import (
 	"errors"
+	"fmt"
 	"os"
 )
 
@@ -10,7 +11,7 @@ type NewWriter struct{}
 func (p *NewWriter) NewWriter(filepath string) (WriterInt, error) {
 	file, err := os.OpenFile(filepath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0666)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("NewWriter open file error: %w", err)
 	}
 	return &writer{file: file}, nil
 }
