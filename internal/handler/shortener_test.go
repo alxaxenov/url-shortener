@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"errors"
 	"io"
 	"net/http"
@@ -8,6 +9,7 @@ import (
 
 	"testing"
 
+	"github.com/alxaxenov/url-shortener/tree/v2/internal/config"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/handler/mocks"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/service"
 	"github.com/stretchr/testify/assert"
@@ -74,7 +76,7 @@ func TestShortenerHandler_AddValue(t *testing.T) {
 			mocks: setupMock{
 				service: func(shortenerService *mocks.ShortenerService) {
 					shortenerService.EXPECT().
-						AddURL(mock.AnythingOfType("context.backgroundCtx"), mock.AnythingOfType("string")).
+						AddURL(mock.AnythingOfType("*context.valueCtx"), mock.AnythingOfType("string"), mock.AnythingOfType("int")).
 						Return("", service.NewBadURL("incorrect URL", errors.New("parse error"))).
 						Once()
 				},
@@ -102,7 +104,7 @@ func TestShortenerHandler_AddValue(t *testing.T) {
 			mocks: setupMock{
 				service: func(shortenerService *mocks.ShortenerService) {
 					shortenerService.EXPECT().
-						AddURL(mock.AnythingOfType("context.backgroundCtx"), mock.AnythingOfType("string")).
+						AddURL(mock.AnythingOfType("*context.valueCtx"), mock.AnythingOfType("string"), mock.AnythingOfType("int")).
 						Return("", errors.New("service AddURL error")).
 						Once()
 				},
@@ -130,7 +132,7 @@ func TestShortenerHandler_AddValue(t *testing.T) {
 			mocks: setupMock{
 				service: func(shortenerService *mocks.ShortenerService) {
 					shortenerService.EXPECT().
-						AddURL(mock.AnythingOfType("context.backgroundCtx"), mock.AnythingOfType("string")).
+						AddURL(mock.AnythingOfType("*context.valueCtx"), mock.AnythingOfType("string"), mock.AnythingOfType("int")).
 						Return("http://myservice.com/abcdef", nil).
 						Once()
 				},
@@ -164,7 +166,8 @@ func TestShortenerHandler_AddValue(t *testing.T) {
 			h := &ShortenerHandler{
 				Service: mockService,
 			}
-			r := httptest.NewRequest(http.MethodPost, "/", mockReader)
+			ctx := context.WithValue(context.Background(), config.UserIDKey, 42)
+			r := httptest.NewRequest(http.MethodPost, "/", mockReader).WithContext(ctx)
 			r.Header.Set("Content-Type", tt.args.contentType)
 			w := httptest.NewRecorder()
 			h.AddValue(w, r)
