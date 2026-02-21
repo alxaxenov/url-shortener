@@ -11,9 +11,11 @@ import (
 )
 
 type ShortenerRepo interface {
-	SetValue(context.Context, string, string) (string, error)
+	SetValue(context.Context, string, string, int) (string, error)
 	GetValue(context.Context, string) (string, error)
-	SaveBatch(context.Context, []UploadBatch) error
+	SaveBatch(context.Context, []UploadBatch, int) error
+	CreateUser(context.Context) (int, error)
+	UserURLs(context.Context, int) ([]model.UserURLs, error)
 }
 
 type ShortenerService struct {
@@ -22,7 +24,7 @@ type ShortenerService struct {
 	base62Chars string
 }
 
-func (s *ShortenerService) AddURL(ctx context.Context, u string) (string, error) {
+func (s *ShortenerService) AddURL(ctx context.Context, u string, userID int) (string, error) {
 	if _, err := url.ParseRequestURI(u); err != nil {
 		return "", NewBadURL(u, err)
 	}
@@ -32,7 +34,7 @@ func (s *ShortenerService) AddURL(ctx context.Context, u string) (string, error)
 		return "", err
 	}
 
-	inserted, err := s.repo.SetValue(ctx, hashURL, u)
+	inserted, err := s.repo.SetValue(ctx, hashURL, u, userID)
 	if err != nil {
 		return "", err
 	}
@@ -75,7 +77,7 @@ type UploadBatch struct {
 	Origin string
 }
 
-func (s *ShortenerService) SaveBatch(ctx context.Context, batches model.LoadBatchRequest) ([]model.BatchResponse, error) {
+func (s *ShortenerService) SaveBatch(ctx context.Context, batches model.LoadBatchRequest, userID int) ([]model.BatchResponse, error) {
 	var resultBatches []model.BatchResponse
 	var UploadBatches []UploadBatch
 	for _, batch := range batches {
@@ -93,10 +95,24 @@ func (s *ShortenerService) SaveBatch(ctx context.Context, batches model.LoadBatc
 		UploadBatches = append(UploadBatches, UploadBatch{hashURL, batch.OriginalURL})
 		resultBatches = append(resultBatches, model.BatchResponse{CorrelationID: batch.CorrelationID, ShortURL: joined})
 	}
-	if err := s.repo.SaveBatch(ctx, UploadBatches); err != nil {
+	if err := s.repo.SaveBatch(ctx, UploadBatches, userID); err != nil {
 		return nil, err
 	}
 	return resultBatches, nil
+}
+
+func (s *ShortenerService) UserURLs(ctx context.Context, userID int) ([]model.UserURLs, error) {
+	data, err := s.repo.UserURLs(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	for i := range data {
+		data[i].Short, err = url.JoinPath(s.basePath, data[i].Short)
+		if err != nil {
+			return nil, fmt.Errorf("UserURLs failed to join path for %s %w", data[i].Short, err)
+		}
+	}
+	return data, nil
 }
 
 func NewShortenerService(repo ShortenerRepo, basePath string) *ShortenerService {

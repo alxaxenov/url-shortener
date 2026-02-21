@@ -11,10 +11,11 @@ import (
 var basePathDefault = "http://localhost:8080"
 
 type Config struct {
-	Addr            string `env:"SERVER_ADDRESS"`
-	BasePath        string `env:"BASE_URL"`
-	FileStoragePath string `env:"FILE_STORAGE_PATH"`
-	DBDSN           string `env:"DATABASE_DSN"`
+	Addr             string `env:"SERVER_ADDRESS"`
+	BasePath         string `env:"BASE_URL"`
+	FileStoragePath  string `env:"FILE_STORAGE_PATH"`
+	DBDSN            string `env:"DATABASE_DSN"`
+	AuthCookieSecret string `env:"AUTH_COOKIE_SECRET" envDefault:"secret_key"`
 }
 
 func (c Config) checkBasePath() error {

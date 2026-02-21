@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/alxaxenov/url-shortener/tree/v2/internal/config"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/config/db"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/logger"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/model"
@@ -15,9 +16,10 @@ import (
 
 //go:generate mockery --name ShortenerService --with-expecter=true --filename mock_shortener_service.go
 type ShortenerService interface {
-	AddURL(context.Context, string) (string, error)
+	AddURL(context.Context, string, int) (string, error)
 	GetURL(context.Context, string) (string, error)
-	SaveBatch(context.Context, model.LoadBatchRequest) ([]model.BatchResponse, error)
+	SaveBatch(context.Context, model.LoadBatchRequest, int) ([]model.BatchResponse, error)
+	UserURLs(context.Context, int) ([]model.UserURLs, error)
 }
 
 type ShortenerHandler struct {
@@ -36,8 +38,9 @@ func (h *ShortenerHandler) AddValue(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	userID := r.Context().Value(config.UserIDKey).(int)
 	responseStatus := http.StatusCreated
-	short, err := h.Service.AddURL(r.Context(), string(b))
+	short, err := h.Service.AddURL(r.Context(), string(b), userID)
 	if err != nil {
 		var badURL *service.BadURL
 		var alreadyExists *service.AlreadyExists
@@ -75,8 +78,9 @@ func (h *ShortenerHandler) AddValueJSON(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	userID := r.Context().Value(config.UserIDKey).(int)
 	responseStatus := http.StatusCreated
-	short, err := h.Service.AddURL(r.Context(), req.URL)
+	short, err := h.Service.AddURL(r.Context(), req.URL, userID)
 	if err != nil {
 		var badURL *service.BadURL
 		var alreadyExists *service.AlreadyExists
@@ -120,7 +124,8 @@ func (h *ShortenerHandler) SaveBatch(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	data, err := h.Service.SaveBatch(r.Context(), req)
+	userID := r.Context().Value(config.UserIDKey).(int)
+	data, err := h.Service.SaveBatch(r.Context(), req, userID)
 	if err != nil {
 		logger.Logger.Error("SaveBatch service.SaveBatch", "error", err)
 		var badURL *service.BadURL
@@ -139,5 +144,31 @@ func (h *ShortenerHandler) SaveBatch(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("content-type", "application/json")
 	w.WriteHeader(http.StatusCreated)
+	w.Write(respData)
+}
+
+func (h *ShortenerHandler) UserURLs(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value(config.UserIDKey).(int)
+	data, err := h.Service.UserURLs(r.Context(), userID)
+	if err != nil {
+		logger.Logger.Error("UserURLs service.UserUrls", "error", err)
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+	status := http.StatusOK
+	var respData []byte
+	if len(data) == 0 {
+		status = http.StatusNoContent
+		respData = []byte(http.StatusText(http.StatusNoContent))
+	} else {
+		respData, err = json.Marshal(model.UserURLsResponse(data))
+		if err != nil {
+			logger.Logger.Error("UserURLs response marshal", "error", err)
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
+		}
+	}
+	w.Header().Set("content-type", "application/json")
+	w.WriteHeader(status)
 	w.Write(respData)
 }
