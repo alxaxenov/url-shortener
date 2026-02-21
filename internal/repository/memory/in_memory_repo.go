@@ -103,14 +103,14 @@ func (r *inMemoryRepo) CreateUser(ctx context.Context) (int, error) {
 	return r.maxUserID, nil
 }
 
-func (d *inMemoryRepo) UserURLs(ctx context.Context, id int) ([]model.UserURLs, error) {
+func (r *inMemoryRepo) UserURLs(ctx context.Context, id int) ([]model.UserURLs, error) {
 	data := make([]model.UserURLs, 0)
-	shorts, ok := d.usersURLs[id]
+	shorts, ok := r.usersURLs[id]
 	if !ok {
 		return data, nil
 	}
 	for _, short := range shorts {
-		origin, ok := d.urls[short]
+		origin, ok := r.urls[short]
 		if !ok {
 			logger.Logger.Infof("inMemoryRepo.UserURLs original not found id=%d short=%s", id, short)
 			continue

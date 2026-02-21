@@ -54,12 +54,12 @@ func (m *UserMiddleware) Use(next http.Handler) http.Handler {
 				return
 			}
 			http.SetCookie(w, &http.Cookie{
-				Name:     m.CookieAuthKey,
-				Value:    token,
-				Path:     "/",
-				HttpOnly: true,
-				Secure:   true,
-				SameSite: http.SameSiteStrictMode,
+				Name:  m.CookieAuthKey,
+				Value: token,
+				//Path:     "/",
+				//HttpOnly: true,
+				//Secure:   true,
+				//SameSite: http.SameSiteStrictMode,
 			})
 			userID = newID
 		}
