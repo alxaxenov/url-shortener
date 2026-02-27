@@ -17,7 +17,7 @@ import (
 //go:generate mockery --name ShortenerService --with-expecter=true --filename mock_shortener_service.go
 type ShortenerService interface {
 	AddURL(context.Context, string, int) (string, error)
-	GetURL(context.Context, string) (string, error)
+	GetURL(context.Context, string) (string, bool, error)
 	SaveBatch(context.Context, model.LoadBatchRequest, int) ([]model.BatchResponse, error)
 	UserURLs(context.Context, int) ([]model.UserURLs, error)
 }
@@ -62,10 +62,14 @@ func (h *ShortenerHandler) AddValue(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *ShortenerHandler) GetValue(w http.ResponseWriter, r *http.Request) {
-	u, err := h.Service.GetURL(r.Context(), r.PathValue("id"))
+	u, active, err := h.Service.GetURL(r.Context(), r.PathValue("id"))
 	if err != nil {
 		logger.Logger.Error("GetValue service.GetURL", "error", err)
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+	if !active {
+		http.Error(w, http.StatusText(http.StatusGone), http.StatusGone)
 		return
 	}
 	w.Header().Set("Location", u)

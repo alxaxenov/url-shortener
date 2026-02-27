@@ -20,8 +20,8 @@ func (d *DBRepo) SetValue(ctx context.Context, short string, origin string, user
 	datetime := time.Now()
 	row := db.QueryRowContext(
 		ctx,
-		"INSERT INTO urls (short_url, original_url, created_at, user_id) VALUES($1, $2, $3, $4) ON CONFLICT (original_url) "+
-			"DO UPDATE SET original_url = EXCLUDED.original_url RETURNING short_url", short, origin, datetime, userID)
+		"INSERT INTO urls (short_url, original_url, created_at, user_id, active) VALUES($1, $2, $3, $4, $5) ON CONFLICT (original_url) "+
+			"DO UPDATE SET original_url = EXCLUDED.original_url RETURNING short_url", short, origin, datetime, userID, true)
 	var inserted string
 	err := row.Scan(&inserted)
 	if err != nil {
@@ -30,14 +30,15 @@ func (d *DBRepo) SetValue(ctx context.Context, short string, origin string, user
 	return inserted, nil
 }
 
-func (d *DBRepo) GetValue(ctx context.Context, short string) (string, error) {
+func (d *DBRepo) GetValue(ctx context.Context, short string) (string, bool, error) {
 	db := d.Connector.GetDB()
-	row := db.QueryRowContext(ctx, "SELECT original_url FROM urls WHERE short_url=$1", short)
+	row := db.QueryRowContext(ctx, "SELECT original_url, active FROM urls WHERE short_url=$1", short)
 	var originalURL string
-	if err := row.Scan(&originalURL); err != nil {
-		return "", fmt.Errorf("GetValue failed to fetch url: %w", err)
+	var active bool
+	if err := row.Scan(&originalURL, &active); err != nil {
+		return "", false, fmt.Errorf("GetValue failed to fetch url: %w", err)
 	}
-	return originalURL, nil
+	return originalURL, active, nil
 }
 
 func (d *DBRepo) SaveBatch(ctx context.Context, batches []service.UploadBatch, userID int) error {
@@ -46,11 +47,11 @@ func (d *DBRepo) SaveBatch(ctx context.Context, batches []service.UploadBatch, u
 	valueStrings := make([]string, 0, len(batches))
 	valueArgs := make([]interface{}, 0, len(batches)*2)
 	for i, u := range batches {
-		valueStrings = append(valueStrings, fmt.Sprintf("($%d,$%d,$%d,$%d)", i*4+1, i*4+2, i*4+3, i*4+4))
-		valueArgs = append(valueArgs, u.Short, u.Origin, createdAt, userID)
+		valueStrings = append(valueStrings, fmt.Sprintf("($%d,$%d,$%d,$%d,$%d)", i*5+1, i*5+2, i*5+3, i*5+4, i*5+5))
+		valueArgs = append(valueArgs, u.Short, u.Origin, createdAt, userID, true)
 	}
 	query := fmt.Sprintf(
-		"INSERT INTO urls (short_url, original_url, created_at, user_id) VALUES %s",
+		"INSERT INTO urls (short_url, original_url, created_at, user_id, active) VALUES %s",
 		strings.Join(valueStrings, ","),
 	)
 	_, err := db.ExecContext(ctx, query, valueArgs...)
@@ -73,7 +74,7 @@ func (d *DBRepo) CreateUser(ctx context.Context) (int, error) {
 
 func (d *DBRepo) UserURLs(ctx context.Context, id int) ([]model.UserURLs, error) {
 	db := d.Connector.GetDB()
-	rows, err := db.QueryContext(ctx, "SELECT short_url, original_url FROM urls WHERE user_id = $1", id)
+	rows, err := db.QueryContext(ctx, "SELECT short_url, original_url, active FROM urls WHERE user_id = $1", id)
 	if err != nil {
 		return nil, fmt.Errorf("UserURLs failed to fetch urls: %w", err)
 	}
@@ -81,9 +82,13 @@ func (d *DBRepo) UserURLs(ctx context.Context, id int) ([]model.UserURLs, error)
 	URLs := make([]model.UserURLs, 0)
 	for rows.Next() {
 		var URL model.UserURLs
-		err = rows.Scan(&URL.Short, &URL.Origin)
+		var active bool
+		err = rows.Scan(&URL.Short, &URL.Origin, &active)
 		if err != nil {
 			return nil, fmt.Errorf("UserURLs failed to scan url: %w", err)
+		}
+		if !active {
+			continue
 		}
 		URLs = append(URLs, URL)
 	}

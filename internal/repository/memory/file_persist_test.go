@@ -69,7 +69,7 @@ func Test_filePersist_addData(t *testing.T) {
 				writerFactory: writerFactory,
 				readerFactory: nil,
 			}
-			if err := f.addData("key", "value", time.Now(), 1); (err != nil) != tt.wantErr {
+			if err := f.addData("key", "value", time.Now(), 1, true); (err != nil) != tt.wantErr {
 				t.Errorf("addData() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			writerFactory.AssertExpectations(t)
@@ -78,7 +78,7 @@ func Test_filePersist_addData(t *testing.T) {
 	}
 }
 
-var successString = "{\"short_url\":\"9W0wsMxE\",\"original_url\":\"original URL\", \"created_at\":\"2026-02-14T00:39:10+03:00\", \"user_id\": 1}\n{\"short\":\"10BfwUi\",\"original\":\"original_url\"}\n{\"short_url\":\"Pc7V6XI3\",\"original_url\":\"original URL\", \"created_at\":\"2026-02-14T00:39:10+03:00\", \"user_id\": 2}"
+var successString = "{\"short_url\":\"9W0wsMxE\",\"original_url\":\"original URL\", \"created_at\":\"2026-02-14T00:39:10+03:00\", \"user_id\": 1, \"active\": true}\n{\"short\":\"10BfwUi\",\"original\":\"original_url\"}\n{\"short_url\":\"Pc7V6XI3\",\"original_url\":\"original URL\", \"created_at\":\"2026-02-14T00:39:10+03:00\", \"user_id\": 2, \"active\": true}"
 
 func Test_filePersist_getData(t *testing.T) {
 	tests := []struct {
@@ -210,8 +210,8 @@ func Test_filePersist_getData(t *testing.T) {
 		{
 			name: "read success",
 			want: []urlData{
-				{"9W0wsMxE", "original URL", "2026-02-14T00:39:10+03:00", 1},
-				{"Pc7V6XI3", "original URL", "2026-02-14T00:39:10+03:00", 2},
+				{"9W0wsMxE", "original URL", "2026-02-14T00:39:10+03:00", 1, true},
+				{"Pc7V6XI3", "original URL", "2026-02-14T00:39:10+03:00", 2, true},
 			},
 			mockSet: func(writerFactory *MockFactoryReaderInt, writer *MockReaderInt) {
 				writerFactory.EXPECT().

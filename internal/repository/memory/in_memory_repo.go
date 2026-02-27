@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/logger"
@@ -18,6 +19,7 @@ type urlData struct {
 	OriginalURL string `json:"original_url"`
 	CreatedAt   string `json:"created_at"`
 	UserID      int    `json:"user_id"`
+	Active      bool   `json:"active"`
 }
 
 func (d urlData) isValid() bool {
@@ -25,7 +27,7 @@ func (d urlData) isValid() bool {
 }
 
 type persistInt interface {
-	addData(string, string, time.Time, int) error
+	addData(string, string, time.Time, int, bool) error
 	getData() ([]urlData, error)
 }
 
@@ -33,6 +35,7 @@ type Value struct {
 	original  string
 	createdAt time.Time
 	userID    int
+	active    bool
 }
 
 type inMemoryRepo struct {
@@ -44,10 +47,10 @@ type inMemoryRepo struct {
 
 func (r *inMemoryRepo) SetValue(ctx context.Context, k string, v string, userID int) (string, error) {
 	createdAt := time.Now()
-	r.urls[k] = Value{v, createdAt, userID}
+	r.urls[k] = Value{v, createdAt, userID, true}
 	r.usersURLs[userID] = append(r.usersURLs[userID], k)
 	if r.persist != nil {
-		err := r.persist.addData(k, v, createdAt, userID)
+		err := r.persist.addData(k, v, createdAt, userID, true)
 		if err != nil {
 			return "", fmt.Errorf("ошибка записи в файл: %w", err)
 		}
@@ -55,11 +58,11 @@ func (r *inMemoryRepo) SetValue(ctx context.Context, k string, v string, userID 
 	return k, nil
 }
 
-func (r *inMemoryRepo) GetValue(ctx context.Context, k string) (string, error) {
+func (r *inMemoryRepo) GetValue(ctx context.Context, k string) (string, bool, error) {
 	if v, ok := r.urls[k]; ok {
-		return v.original, nil
+		return v.original, v.active, nil
 	}
-	return "", errors.New("key not found")
+	return "", false, errors.New("key not found")
 }
 
 func (r *inMemoryRepo) loadFromPersist() error {
@@ -81,8 +84,10 @@ func (r *inMemoryRepo) loadFromPersist() error {
 			logger.Logger.Info("failed to parse created at time %s", v.CreatedAt)
 			continue
 		}
-		r.urls[v.ShortURL] = Value{v.OriginalURL, createdAt, v.UserID}
-		r.usersURLs[v.UserID] = append(r.usersURLs[v.UserID], v.ShortURL)
+		r.urls[v.ShortURL] = Value{v.OriginalURL, createdAt, v.UserID, v.Active}
+		if !slices.Contains(r.usersURLs[v.UserID], v.ShortURL) {
+			r.usersURLs[v.UserID] = append(r.usersURLs[v.UserID], v.ShortURL)
+		}
 		r.maxUserID = max(r.maxUserID, v.UserID)
 	}
 	return nil
@@ -113,6 +118,9 @@ func (r *inMemoryRepo) UserURLs(ctx context.Context, id int) ([]model.UserURLs, 
 		origin, ok := r.urls[short]
 		if !ok {
 			logger.Logger.Infof("inMemoryRepo.UserURLs original not found id=%d short=%s", id, short)
+			continue
+		}
+		if !origin.active {
 			continue
 		}
 		data = append(data, model.UserURLs{Short: short, Origin: origin.original})

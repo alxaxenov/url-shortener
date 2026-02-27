@@ -200,7 +200,7 @@ func TestShortenerHandler_GetValue(t *testing.T) {
 			setupMock: func(mockService *mocks.ShortenerService) {
 				mockService.EXPECT().
 					GetURL(mock.AnythingOfType("context.backgroundCtx"), mock.AnythingOfType("string")).
-					Return("", errors.New("service GetURL error")).
+					Return("", false, errors.New("service GetURL error")).
 					Once()
 			},
 			want: want{
@@ -213,7 +213,7 @@ func TestShortenerHandler_GetValue(t *testing.T) {
 			setupMock: func(mockService *mocks.ShortenerService) {
 				mockService.EXPECT().
 					GetURL(mock.AnythingOfType("context.backgroundCtx"), mock.AnythingOfType("string")).
-					Return("http://ptmnjp.ru/xqbm8n/ekei4oj2yxfa", nil).
+					Return("http://ptmnjp.ru/xqbm8n/ekei4oj2yxfa", true, nil).
 					Once()
 			},
 			want: want{

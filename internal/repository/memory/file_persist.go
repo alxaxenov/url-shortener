@@ -39,7 +39,7 @@ type filePersist struct {
 	readerFactory FactoryReaderInt
 }
 
-func (f *filePersist) addData(k string, v string, createdAt time.Time, userID int) error {
+func (f *filePersist) addData(k string, v string, createdAt time.Time, userID int, active bool) error {
 	producer, err := f.writerFactory.NewWriter(f.filePath)
 	if err != nil {
 		return err
@@ -47,7 +47,7 @@ func (f *filePersist) addData(k string, v string, createdAt time.Time, userID in
 	defer producer.Close()
 
 	createdAtString := createdAt.Format(timeFormat)
-	bytes, err := json.Marshal(urlData{ShortURL: k, OriginalURL: v, CreatedAt: createdAtString, UserID: userID})
+	bytes, err := json.Marshal(urlData{ShortURL: k, OriginalURL: v, CreatedAt: createdAtString, UserID: userID, Active: active})
 	if err != nil {
 		return fmt.Errorf("addData marshal url error: %w", err)
 	}

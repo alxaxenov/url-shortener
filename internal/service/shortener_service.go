@@ -12,7 +12,7 @@ import (
 
 type ShortenerRepo interface {
 	SetValue(context.Context, string, string, int) (string, error)
-	GetValue(context.Context, string) (string, error)
+	GetValue(context.Context, string) (string, bool, error)
 	SaveBatch(context.Context, []UploadBatch, int) error
 	CreateUser(context.Context) (int, error)
 	UserURLs(context.Context, int) ([]model.UserURLs, error)
@@ -68,7 +68,7 @@ func (s *ShortenerService) getShort() (string, error) {
 	return string(res), nil
 }
 
-func (s *ShortenerService) GetURL(ctx context.Context, short string) (string, error) {
+func (s *ShortenerService) GetURL(ctx context.Context, short string) (string, bool, error) {
 	return s.repo.GetValue(ctx, short)
 }
 
