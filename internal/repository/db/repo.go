@@ -7,8 +7,11 @@ import (
 	"time"
 
 	db_pack "github.com/alxaxenov/url-shortener/tree/v2/internal/config/db"
+	"github.com/alxaxenov/url-shortener/tree/v2/internal/logger"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/model"
+	"github.com/alxaxenov/url-shortener/tree/v2/internal/repository"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/service"
+	"github.com/alxaxenov/url-shortener/tree/v2/internal/utils"
 )
 
 type DBRepo struct {
@@ -97,6 +100,36 @@ func (d *DBRepo) UserURLs(ctx context.Context, id int) ([]model.UserURLs, error)
 		return nil, fmt.Errorf("UserURLs rows.Err() failed: %w", err)
 	}
 	return URLs, nil
+}
+
+func (d *DBRepo) DeleteURLs(ctx context.Context, deleteMap *repository.DeleteMap) (int, error) {
+	db := d.Connector.GetDB()
+	query := "UPDATE urls SET active = false WHERE (user_id, short_url) IN (%s) AND active = true"
+
+	var conditions []string
+	var args []any
+	var paramIter int
+
+	for userID, URLs := range *deleteMap {
+		uniqueURLs := utils.UniqueSlice(&URLs)
+		for _, url := range uniqueURLs {
+			conditions = append(conditions, fmt.Sprintf("($%d, $%d)", paramIter*2+1, paramIter*2+2))
+			args = append(args, userID, url)
+			paramIter++
+		}
+	}
+
+	finalQuery := fmt.Sprintf(query, strings.Join(conditions, ", "))
+	result, err := db.ExecContext(ctx, finalQuery, args...)
+	if err != nil {
+		return 0, fmt.Errorf("DeleteURLs error %w", err)
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		logger.Logger.Error("DeleteURLs failed to fetch affected rows", "error", err)
+	}
+
+	return int(rowsAffected), nil
 }
 
 func NewDBRepo(c db_pack.ConnectorInt) service.ShortenerRepo {

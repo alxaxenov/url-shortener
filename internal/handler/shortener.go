@@ -20,6 +20,7 @@ type ShortenerService interface {
 	GetURL(context.Context, string) (string, bool, error)
 	SaveBatch(context.Context, model.LoadBatchRequest, int) ([]model.BatchResponse, error)
 	UserURLs(context.Context, int) ([]model.UserURLs, error)
+	AppendDelete(int, model.DeleteURLs)
 }
 
 type ShortenerHandler struct {
@@ -175,4 +176,16 @@ func (h *ShortenerHandler) UserURLs(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("content-type", "application/json")
 	w.WriteHeader(status)
 	w.Write(respData)
+}
+
+func (h *ShortenerHandler) DeleteURLs(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value(config.UserIDKey).(int)
+	req := model.DeleteURLs{}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	go h.Service.AppendDelete(userID, req)
+	w.WriteHeader(http.StatusAccepted)
+	w.Write([]byte(http.StatusText(http.StatusAccepted)))
 }

@@ -6,8 +6,11 @@ import (
 	"encoding/binary"
 	"fmt"
 	"net/url"
+	"time"
 
+	"github.com/alxaxenov/url-shortener/tree/v2/internal/logger"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/model"
+	"github.com/alxaxenov/url-shortener/tree/v2/internal/repository"
 )
 
 type ShortenerRepo interface {
@@ -16,12 +19,14 @@ type ShortenerRepo interface {
 	SaveBatch(context.Context, []UploadBatch, int) error
 	CreateUser(context.Context) (int, error)
 	UserURLs(context.Context, int) ([]model.UserURLs, error)
+	DeleteURLs(ctx context.Context, deleteMap *repository.DeleteMap) (int, error)
 }
 
 type ShortenerService struct {
-	repo        ShortenerRepo
-	basePath    string
-	base62Chars string
+	repo          ShortenerRepo
+	basePath      string
+	base62Chars   string
+	DeleteMsgChan chan model.DeleteRequest
 }
 
 func (s *ShortenerService) AddURL(ctx context.Context, u string, userID int) (string, error) {
@@ -115,10 +120,46 @@ func (s *ShortenerService) UserURLs(ctx context.Context, userID int) ([]model.Us
 	return data, nil
 }
 
-func NewShortenerService(repo ShortenerRepo, basePath string) *ShortenerService {
-	return &ShortenerService{
-		repo:        repo,
-		basePath:    basePath,
-		base62Chars: "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz",
+func (s *ShortenerService) deleteURLs() {
+	ticker := time.NewTicker(10 * time.Second)
+	var messages []model.DeleteRequest
+
+	for {
+		select {
+		case msg := <-s.DeleteMsgChan:
+			messages = append(messages, msg)
+		case <-ticker.C:
+			if len(messages) == 0 {
+				continue
+			}
+			deleteMap := repository.DeleteMap{}
+			for _, msg := range messages {
+				deleteMap[msg.UserID] = append(deleteMap[msg.UserID], msg.URLs...)
+			}
+			affected, err := s.repo.DeleteURLs(context.Background(), &deleteMap)
+
+			if err != nil {
+				logger.Logger.Error("DeleteURLs error", "error", err)
+			} else {
+				logger.Logger.Infof("DeleteURLs affected %d rows", affected)
+			}
+
+			messages = nil
+		}
 	}
+}
+
+func (s *ShortenerService) AppendDelete(userID int, URLs model.DeleteURLs) {
+	s.DeleteMsgChan <- model.DeleteRequest{UserID: userID, URLs: URLs}
+}
+
+func NewShortenerService(repo ShortenerRepo, basePath string) *ShortenerService {
+	instance := &ShortenerService{
+		repo:          repo,
+		basePath:      basePath,
+		base62Chars:   "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz",
+		DeleteMsgChan: make(chan model.DeleteRequest, 1024),
+	}
+	go instance.deleteURLs()
+	return instance
 }
