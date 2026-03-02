@@ -5,7 +5,9 @@ import (
 	"fmt"
 )
 
-const UserIDKey string = "userID"
+type UserIDType string
+
+const UserIDKey UserIDType = "userID"
 
 func GetUserID(ctx context.Context) (int, error) {
 	userID, ok := ctx.Value(UserIDKey).(int)

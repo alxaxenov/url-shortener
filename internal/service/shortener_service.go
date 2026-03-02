@@ -79,7 +79,7 @@ func (s *ShortenerService) GetURL(ctx context.Context, short string) (string, er
 		return "", err
 	}
 	if !active {
-		return "", URLDeleted
+		return "", ErrURLDeleted
 	}
 	return v, nil
 }

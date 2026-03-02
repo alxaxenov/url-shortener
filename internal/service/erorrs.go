@@ -35,4 +35,4 @@ func NewAlreadyExists(shortURL, originURL string) *AlreadyExists {
 	return &AlreadyExists{ShortURL: shortURL, OriginURL: originURL}
 }
 
-var URLDeleted = errors.New("URL был удален")
+var ErrURLDeleted = errors.New("URL был удален")

@@ -69,7 +69,7 @@ func (h *ShortenerHandler) GetValue(w http.ResponseWriter, r *http.Request) {
 	u, err := h.Service.GetURL(r.Context(), r.PathValue("id"))
 	if err != nil {
 		var status int
-		if errors.Is(err, service.URLDeleted) {
+		if errors.Is(err, service.ErrURLDeleted) {
 			status = http.StatusGone
 		} else {
 			logger.Logger.Error("GetValue service.GetURL", "error", err)
