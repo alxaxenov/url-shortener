@@ -1,6 +1,7 @@
 package service
 
 import (
+	"errors"
 	"fmt"
 )
 
@@ -33,3 +34,5 @@ func (e *AlreadyExists) Error() string {
 func NewAlreadyExists(shortURL, originURL string) *AlreadyExists {
 	return &AlreadyExists{ShortURL: shortURL, OriginURL: originURL}
 }
+
+var URLDeleted = errors.New("URL был удален")

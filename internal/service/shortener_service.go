@@ -73,8 +73,15 @@ func (s *ShortenerService) getShort() (string, error) {
 	return string(res), nil
 }
 
-func (s *ShortenerService) GetURL(ctx context.Context, short string) (string, bool, error) {
-	return s.repo.GetValue(ctx, short)
+func (s *ShortenerService) GetURL(ctx context.Context, short string) (string, error) {
+	v, active, err := s.repo.GetValue(ctx, short)
+	if err != nil {
+		return "", err
+	}
+	if !active {
+		return "", URLDeleted
+	}
+	return v, nil
 }
 
 type UploadBatch struct {

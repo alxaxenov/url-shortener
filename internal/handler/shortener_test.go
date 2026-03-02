@@ -9,9 +9,9 @@ import (
 
 	"testing"
 
-	"github.com/alxaxenov/url-shortener/tree/v2/internal/config"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/handler/mocks"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/service"
+	"github.com/alxaxenov/url-shortener/tree/v2/internal/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -166,7 +166,7 @@ func TestShortenerHandler_AddValue(t *testing.T) {
 			h := &ShortenerHandler{
 				Service: mockService,
 			}
-			ctx := context.WithValue(context.Background(), config.UserIDKey, 42)
+			ctx := context.WithValue(context.Background(), utils.UserIDKey, 42)
 			r := httptest.NewRequest(http.MethodPost, "/", mockReader).WithContext(ctx)
 			r.Header.Set("Content-Type", tt.args.contentType)
 			w := httptest.NewRecorder()
@@ -200,7 +200,7 @@ func TestShortenerHandler_GetValue(t *testing.T) {
 			setupMock: func(mockService *mocks.ShortenerService) {
 				mockService.EXPECT().
 					GetURL(mock.AnythingOfType("context.backgroundCtx"), mock.AnythingOfType("string")).
-					Return("", false, errors.New("service GetURL error")).
+					Return("", errors.New("service GetURL error")).
 					Once()
 			},
 			want: want{
@@ -213,7 +213,7 @@ func TestShortenerHandler_GetValue(t *testing.T) {
 			setupMock: func(mockService *mocks.ShortenerService) {
 				mockService.EXPECT().
 					GetURL(mock.AnythingOfType("context.backgroundCtx"), mock.AnythingOfType("string")).
-					Return("http://ptmnjp.ru/xqbm8n/ekei4oj2yxfa", true, nil).
+					Return("http://ptmnjp.ru/xqbm8n/ekei4oj2yxfa", nil).
 					Once()
 			},
 			want: want{

@@ -116,7 +116,7 @@ func (_c *ShortenerService_AppendDelete_Call) RunAndReturn(run func(int, model.D
 }
 
 // GetURL provides a mock function with given fields: _a0, _a1
-func (_m *ShortenerService) GetURL(_a0 context.Context, _a1 string) (string, bool, error) {
+func (_m *ShortenerService) GetURL(_a0 context.Context, _a1 string) (string, error) {
 	ret := _m.Called(_a0, _a1)
 
 	if len(ret) == 0 {
@@ -124,9 +124,8 @@ func (_m *ShortenerService) GetURL(_a0 context.Context, _a1 string) (string, boo
 	}
 
 	var r0 string
-	var r1 bool
-	var r2 error
-	if rf, ok := ret.Get(0).(func(context.Context, string) (string, bool, error)); ok {
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) (string, error)); ok {
 		return rf(_a0, _a1)
 	}
 	if rf, ok := ret.Get(0).(func(context.Context, string) string); ok {
@@ -135,19 +134,13 @@ func (_m *ShortenerService) GetURL(_a0 context.Context, _a1 string) (string, boo
 		r0 = ret.Get(0).(string)
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, string) bool); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
 		r1 = rf(_a0, _a1)
 	} else {
-		r1 = ret.Get(1).(bool)
+		r1 = ret.Error(1)
 	}
 
-	if rf, ok := ret.Get(2).(func(context.Context, string) error); ok {
-		r2 = rf(_a0, _a1)
-	} else {
-		r2 = ret.Error(2)
-	}
-
-	return r0, r1, r2
+	return r0, r1
 }
 
 // ShortenerService_GetURL_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetURL'
@@ -169,12 +162,12 @@ func (_c *ShortenerService_GetURL_Call) Run(run func(_a0 context.Context, _a1 st
 	return _c
 }
 
-func (_c *ShortenerService_GetURL_Call) Return(_a0 string, _a1 bool, _a2 error) *ShortenerService_GetURL_Call {
-	_c.Call.Return(_a0, _a1, _a2)
+func (_c *ShortenerService_GetURL_Call) Return(_a0 string, _a1 error) *ShortenerService_GetURL_Call {
+	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *ShortenerService_GetURL_Call) RunAndReturn(run func(context.Context, string) (string, bool, error)) *ShortenerService_GetURL_Call {
+func (_c *ShortenerService_GetURL_Call) RunAndReturn(run func(context.Context, string) (string, error)) *ShortenerService_GetURL_Call {
 	_c.Call.Return(run)
 	return _c
 }

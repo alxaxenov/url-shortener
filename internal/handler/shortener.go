@@ -7,17 +7,17 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/alxaxenov/url-shortener/tree/v2/internal/config"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/config/db"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/logger"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/model"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/service"
+	"github.com/alxaxenov/url-shortener/tree/v2/internal/utils"
 )
 
 //go:generate mockery --name ShortenerService --with-expecter=true --filename mock_shortener_service.go
 type ShortenerService interface {
 	AddURL(context.Context, string, int) (string, error)
-	GetURL(context.Context, string) (string, bool, error)
+	GetURL(context.Context, string) (string, error)
 	SaveBatch(context.Context, model.LoadBatchRequest, int) ([]model.BatchResponse, error)
 	UserURLs(context.Context, int) ([]model.UserURLs, error)
 	AppendDelete(int, model.DeleteURLs)
@@ -39,7 +39,10 @@ func (h *ShortenerHandler) AddValue(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	userID := r.Context().Value(config.UserIDKey).(int)
+	userID, err := utils.GetUserID(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+	}
 	responseStatus := http.StatusCreated
 	short, err := h.Service.AddURL(r.Context(), string(b), userID)
 	if err != nil {
@@ -63,14 +66,17 @@ func (h *ShortenerHandler) AddValue(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *ShortenerHandler) GetValue(w http.ResponseWriter, r *http.Request) {
-	u, active, err := h.Service.GetURL(r.Context(), r.PathValue("id"))
+	u, err := h.Service.GetURL(r.Context(), r.PathValue("id"))
 	if err != nil {
-		logger.Logger.Error("GetValue service.GetURL", "error", err)
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
-	}
-	if !active {
-		http.Error(w, http.StatusText(http.StatusGone), http.StatusGone)
+		var status int
+		if errors.Is(err, service.URLDeleted) {
+			status = http.StatusGone
+		} else {
+			logger.Logger.Error("GetValue service.GetURL", "error", err)
+			status = http.StatusInternalServerError
+		}
+
+		http.Error(w, http.StatusText(status), status)
 		return
 	}
 	w.Header().Set("Location", u)
@@ -83,7 +89,10 @@ func (h *ShortenerHandler) AddValueJSON(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	userID := r.Context().Value(config.UserIDKey).(int)
+	userID, err := utils.GetUserID(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+	}
 	responseStatus := http.StatusCreated
 	short, err := h.Service.AddURL(r.Context(), req.URL, userID)
 	if err != nil {
@@ -129,7 +138,10 @@ func (h *ShortenerHandler) SaveBatch(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	userID := r.Context().Value(config.UserIDKey).(int)
+	userID, err := utils.GetUserID(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+	}
 	data, err := h.Service.SaveBatch(r.Context(), req, userID)
 	if err != nil {
 		logger.Logger.Error("SaveBatch service.SaveBatch", "error", err)
@@ -153,7 +165,10 @@ func (h *ShortenerHandler) SaveBatch(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *ShortenerHandler) UserURLs(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value(config.UserIDKey).(int)
+	userID, err := utils.GetUserID(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+	}
 	data, err := h.Service.UserURLs(r.Context(), userID)
 	if err != nil {
 		logger.Logger.Error("UserURLs service.UserUrls", "error", err)
@@ -179,7 +194,10 @@ func (h *ShortenerHandler) UserURLs(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *ShortenerHandler) DeleteURLs(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value(config.UserIDKey).(int)
+	userID, err := utils.GetUserID(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+	}
 	req := model.DeleteURLs{}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)

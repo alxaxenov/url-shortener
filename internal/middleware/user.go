@@ -8,6 +8,7 @@ import (
 
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/config"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/logger"
+	"github.com/alxaxenov/url-shortener/tree/v2/internal/utils"
 	"github.com/golang-jwt/jwt/v4"
 )
 
@@ -32,8 +33,8 @@ func (m *UserMiddleware) Use(next http.Handler) http.Handler {
 		var userID int
 
 		if err == nil {
-			userID, _ = m.getUserID(cookie.Value)
-			if userID == 0 {
+			userID, err = m.getUserID(cookie.Value)
+			if err == nil && userID == 0 {
 				http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 				return
 			}
@@ -58,13 +59,12 @@ func (m *UserMiddleware) Use(next http.Handler) http.Handler {
 				Value:    token,
 				Path:     "/",
 				HttpOnly: true,
-				//Secure:   true,
 				SameSite: http.SameSiteStrictMode,
 			})
 			userID = newID
 		}
 
-		ctx := context.WithValue(r.Context(), config.UserIDKey, userID)
+		ctx := utils.SetUserID(r.Context(), userID)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
@@ -79,10 +79,10 @@ func (m *UserMiddleware) getUserID(tokenString string) (int, error) {
 			return []byte(m.secretKey), nil
 		})
 	if err != nil {
-		return -1, fmt.Errorf("error parsing token: %w", err)
+		return 0, fmt.Errorf("error parsing token: %w", err)
 	}
 	if !token.Valid {
-		return -1, errors.New("token is not valid")
+		return 0, errors.New("token is not valid")
 	}
 	return claims.UserID, nil
 }
