@@ -9,7 +9,6 @@ import (
 
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/logger"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/model"
-	"github.com/alxaxenov/url-shortener/tree/v2/internal/repository"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/service"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/utils"
 )
@@ -130,22 +129,20 @@ func (r *inMemoryRepo) UserURLs(ctx context.Context, id int) ([]model.UserURLs, 
 	return data, nil
 }
 
-func (r *inMemoryRepo) DeleteURLs(ctx context.Context, deleteMap *repository.DeleteMap) (int, error) {
+func (r *inMemoryRepo) DeleteURLs(ctx context.Context, deleteReq *model.DeleteRequest) (int, error) {
 	affected := 0
-	for userID, URLs := range *deleteMap {
-		uniqueURLs := utils.UniqueSlice(&URLs)
-		for _, shortURL := range uniqueURLs {
-			cur, ok := r.urls[shortURL]
-			if !ok || !cur.active || cur.userID != userID {
-				continue
-			}
-			r.urls[shortURL] = Value{original: cur.original, createdAt: cur.createdAt, active: false}
-			err := r.persist.addData(shortURL, cur.original, cur.createdAt, userID, false)
-			if err != nil {
-				return affected, err
-			}
-			affected++
+	uniqueURLs := utils.UniqueSlice((*[]string)(&deleteReq.URLs))
+	for _, shortURL := range uniqueURLs {
+		cur, ok := r.urls[shortURL]
+		if !ok || !cur.active || cur.userID != deleteReq.UserID {
+			continue
 		}
+		r.urls[shortURL] = Value{original: cur.original, createdAt: cur.createdAt, active: false}
+		err := r.persist.addData(shortURL, cur.original, cur.createdAt, deleteReq.UserID, false)
+		if err != nil {
+			return affected, err
+		}
+		affected++
 	}
 	return affected, nil
 }

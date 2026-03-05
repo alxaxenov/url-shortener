@@ -23,9 +23,20 @@ type ShortenerService interface {
 	AppendDelete(int, model.DeleteURLs)
 }
 
+type SemaphoreInt interface {
+	Acquire()
+	Release()
+}
+
 type ShortenerHandler struct {
-	Service ShortenerService
-	DB      db.DBTX
+	Service         ShortenerService
+	DB              db.DBTX
+	deleteSemaphore SemaphoreInt
+}
+
+func NewShortenerHandler(s ShortenerService, d db.DBTX) Handler {
+	semaphore := utils.NewSemaphore(5)
+	return &ShortenerHandler{Service: s, DB: d, deleteSemaphore: semaphore}
 }
 
 func (h *ShortenerHandler) AddValue(w http.ResponseWriter, r *http.Request) {
@@ -203,7 +214,11 @@ func (h *ShortenerHandler) DeleteURLs(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	go h.Service.AppendDelete(userID, req)
+	go func() {
+		h.deleteSemaphore.Acquire()
+		h.Service.AppendDelete(userID, req)
+		defer h.deleteSemaphore.Release()
+	}()
 	w.WriteHeader(http.StatusAccepted)
 	w.Write([]byte(http.StatusText(http.StatusAccepted)))
 }

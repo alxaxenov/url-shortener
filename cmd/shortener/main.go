@@ -49,8 +49,9 @@ func run() error {
 		}
 	}
 
-	srv := service.NewShortenerService(repo, cfg.BasePath)
-	h := &handler.ShortenerHandler{Service: srv, DB: dbConn}
+	srv := service.NewShortenerService(repo, cfg.BasePath, 3)
+	defer srv.CLoseDeleteChan()
+	h := handler.NewShortenerHandler(srv, dbConn)
 	userMiddleware := middleware.NewUserMiddleware(cfg.AuthCookieSecret, repo)
 
 	return handler.Serve(cfg.Addr, h, userMiddleware)
