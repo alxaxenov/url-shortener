@@ -12,8 +12,10 @@ import (
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/model"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/service"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/utils"
+	"github.com/alxaxenov/url-shortener/tree/v2/internal/worker/audit"
 )
 
+//go:generate mockery --name Reader --srcpkg io --with-expecter=true --output ./mocks --outpkg mocks --filename mock_io_reader.go
 //go:generate mockery --name ShortenerService --with-expecter=true --filename mock_shortener_service.go
 type ShortenerService interface {
 	AddURL(context.Context, string, int) (string, error)
@@ -28,15 +30,21 @@ type SemaphoreInt interface {
 	Release()
 }
 
+//go:generate mockery --name AuditPublisher --with-expecter=true --filename mock_audit_publisher.go
+type AuditPublisher interface {
+	Publish(action audit.ActionType, userID int, URL string)
+}
+
 type ShortenerHandler struct {
 	Service         ShortenerService
 	DB              db.DBTX
 	deleteSemaphore SemaphoreInt
+	audit           AuditPublisher
 }
 
-func NewShortenerHandler(s ShortenerService, d db.DBTX) Handler {
+func NewShortenerHandler(s ShortenerService, d db.DBTX, audit AuditPublisher) Handler {
 	semaphore := utils.NewSemaphore(5)
-	return &ShortenerHandler{Service: s, DB: d, deleteSemaphore: semaphore}
+	return &ShortenerHandler{Service: s, DB: d, deleteSemaphore: semaphore, audit: audit}
 }
 
 func (h *ShortenerHandler) AddValue(w http.ResponseWriter, r *http.Request) {
@@ -71,6 +79,9 @@ func (h *ShortenerHandler) AddValue(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	if responseStatus == http.StatusCreated && h.audit != nil {
+		go h.audit.Publish(audit.Shorten, userID, string(b))
+	}
 	w.Header().Set("content-type", "text/plain")
 	w.WriteHeader(responseStatus)
 	io.WriteString(w, short)
@@ -89,6 +100,10 @@ func (h *ShortenerHandler) GetValue(w http.ResponseWriter, r *http.Request) {
 
 		http.Error(w, http.StatusText(status), status)
 		return
+	}
+	if h.audit != nil {
+		userId, _ := utils.GetUserID(r.Context())
+		go h.audit.Publish(audit.Follow, userId, u)
 	}
 	w.Header().Set("Location", u)
 	w.WriteHeader(http.StatusTemporaryRedirect)
@@ -126,6 +141,9 @@ func (h *ShortenerHandler) AddValueJSON(w http.ResponseWriter, r *http.Request) 
 		logger.Logger.Error("Failed to marshal AddValueJSON", "error", err)
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
+	}
+	if responseStatus == http.StatusCreated && h.audit != nil {
+		go h.audit.Publish(audit.Shorten, userID, req.URL)
 	}
 	w.Header().Set("content-type", "application/json")
 	w.WriteHeader(responseStatus)

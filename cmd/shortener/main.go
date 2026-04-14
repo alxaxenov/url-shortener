@@ -13,6 +13,7 @@ import (
 	repo_db "github.com/alxaxenov/url-shortener/tree/v2/internal/repository/db"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/repository/memory"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/service"
+	"github.com/alxaxenov/url-shortener/tree/v2/internal/worker/audit"
 )
 
 func main() {
@@ -51,7 +52,8 @@ func run() error {
 
 	srv := service.NewShortenerService(repo, cfg.BasePath, 3)
 	defer srv.CLoseDeleteChan()
-	h := handler.NewShortenerHandler(srv, dbConn)
+	auditPudlisher := audit.NewPublisher(cfg.AuditFile, cfg.AuditURL)
+	h := handler.NewShortenerHandler(srv, dbConn, auditPudlisher)
 	userMiddleware := middleware.NewUserMiddleware(cfg.AuthCookieSecret, repo)
 
 	return handler.Serve(cfg.Addr, h, userMiddleware)

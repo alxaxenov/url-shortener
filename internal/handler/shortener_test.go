@@ -6,12 +6,14 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"testing/synctest"
 
 	"testing"
 
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/handler/mocks"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/service"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/utils"
+	"github.com/alxaxenov/url-shortener/tree/v2/internal/worker/audit"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -21,6 +23,7 @@ func TestShortenerHandler_AddValue(t *testing.T) {
 	type setupMock struct {
 		service func(shortenerService *mocks.ShortenerService)
 		reader  func(*mocks.Reader)
+		audit   func(publisher *mocks.AuditPublisher)
 	}
 	type args struct {
 		contentType string
@@ -41,6 +44,7 @@ func TestShortenerHandler_AddValue(t *testing.T) {
 			mocks: setupMock{
 				service: func(shortenerService *mocks.ShortenerService) {},
 				reader:  func(mockReader *mocks.Reader) {},
+				audit:   func(publisher *mocks.AuditPublisher) {},
 			},
 			args: args{
 				contentType: "application/json",
@@ -61,6 +65,7 @@ func TestShortenerHandler_AddValue(t *testing.T) {
 						Return(0, errors.New("reader test error")).
 						Once()
 				},
+				audit: func(publisher *mocks.AuditPublisher) {},
 			},
 			args: args{
 				contentType: "text/plain",
@@ -88,6 +93,9 @@ func TestShortenerHandler_AddValue(t *testing.T) {
 							copy(p, []byte("not an url"))
 						}).
 						Once()
+				},
+				audit: func(publisher *mocks.AuditPublisher) {
+					publisher.AssertNotCalled(t, "Publish", mock.Anything, mock.Anything, mock.Anything)
 				},
 			},
 			args: args{
@@ -117,6 +125,9 @@ func TestShortenerHandler_AddValue(t *testing.T) {
 						}).
 						Once()
 				},
+				audit: func(publisher *mocks.AuditPublisher) {
+					publisher.AssertNotCalled(t, "Publish", mock.Anything, mock.Anything, mock.Anything)
+				},
 			},
 			args: args{
 				contentType: "text/plain",
@@ -145,6 +156,9 @@ func TestShortenerHandler_AddValue(t *testing.T) {
 						}).
 						Once()
 				},
+				audit: func(publisher *mocks.AuditPublisher) {
+					publisher.EXPECT().Publish(audit.Shorten, 42, "http://ptmnjp.ru/xqbm8n/ekei4oj2yxfa").Times(1)
+				},
 			},
 			args: args{
 				contentType: "text/plain",
@@ -158,29 +172,35 @@ func TestShortenerHandler_AddValue(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockService := mocks.NewShortenerService(t)
-			tt.mocks.service(mockService)
-			mockReader := mocks.NewReader(t)
-			tt.mocks.reader(mockReader)
+			synctest.Test(t, func(t *testing.T) {
+				mockService := mocks.NewShortenerService(t)
+				tt.mocks.service(mockService)
+				mockReader := mocks.NewReader(t)
+				tt.mocks.reader(mockReader)
+				mockAudit := mocks.NewAuditPublisher(t)
+				tt.mocks.audit(mockAudit)
 
-			h := &ShortenerHandler{
-				Service: mockService,
-			}
-			ctx := context.WithValue(context.Background(), utils.UserIDKey, 42)
-			r := httptest.NewRequest(http.MethodPost, "/", mockReader).WithContext(ctx)
-			r.Header.Set("Content-Type", tt.args.contentType)
-			w := httptest.NewRecorder()
-			h.AddValue(w, r)
+				h := &ShortenerHandler{
+					Service: mockService,
+					audit:   mockAudit,
+				}
+				ctx := context.WithValue(context.Background(), utils.UserIDKey, 42)
+				r := httptest.NewRequest(http.MethodPost, "/", mockReader).WithContext(ctx)
+				r.Header.Set("Content-Type", tt.args.contentType)
+				w := httptest.NewRecorder()
+				h.AddValue(w, r)
+				synctest.Wait()
 
-			res := w.Result()
-			assert.Equal(t, tt.want.statusCode, res.StatusCode)
-			assert.Equal(t, tt.want.contentType, res.Header.Get("Content-Type"))
-			defer res.Body.Close()
-			resBody, err := io.ReadAll(res.Body)
-			require.NoError(t, err)
-			assert.Equal(t, tt.want.body, string(resBody))
-			mockService.AssertExpectations(t)
-			mockReader.AssertExpectations(t)
+				res := w.Result()
+				assert.Equal(t, tt.want.statusCode, res.StatusCode)
+				assert.Equal(t, tt.want.contentType, res.Header.Get("Content-Type"))
+				defer res.Body.Close()
+				resBody, err := io.ReadAll(res.Body)
+				require.NoError(t, err)
+				assert.Equal(t, tt.want.body, string(resBody))
+				mockService.AssertExpectations(t)
+				mockReader.AssertExpectations(t)
+			})
 		})
 	}
 }
@@ -193,15 +213,16 @@ func TestShortenerHandler_GetValue(t *testing.T) {
 	tests := []struct {
 		name      string
 		want      want
-		setupMock func(*mocks.ShortenerService)
+		setupMock func(*mocks.ShortenerService, *mocks.AuditPublisher)
 	}{
 		{
 			name: "get url service error",
-			setupMock: func(mockService *mocks.ShortenerService) {
+			setupMock: func(mockService *mocks.ShortenerService, publisher *mocks.AuditPublisher) {
 				mockService.EXPECT().
 					GetURL(mock.AnythingOfType("context.backgroundCtx"), mock.AnythingOfType("string")).
 					Return("", errors.New("service GetURL error")).
 					Once()
+				publisher.AssertNotCalled(t, "Publish", mock.Anything, mock.Anything, mock.Anything)
 			},
 			want: want{
 				statusCode: http.StatusInternalServerError,
@@ -210,11 +231,12 @@ func TestShortenerHandler_GetValue(t *testing.T) {
 		},
 		{
 			name: "success",
-			setupMock: func(mockService *mocks.ShortenerService) {
+			setupMock: func(mockService *mocks.ShortenerService, publisher *mocks.AuditPublisher) {
 				mockService.EXPECT().
 					GetURL(mock.AnythingOfType("context.backgroundCtx"), mock.AnythingOfType("string")).
 					Return("http://ptmnjp.ru/xqbm8n/ekei4oj2yxfa", nil).
 					Once()
+				publisher.EXPECT().Publish(audit.Follow, 0, "http://ptmnjp.ru/xqbm8n/ekei4oj2yxfa").Times(1)
 			},
 			want: want{
 				statusCode: http.StatusTemporaryRedirect,
@@ -224,21 +246,26 @@ func TestShortenerHandler_GetValue(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockService := mocks.NewShortenerService(t)
-			tt.setupMock(mockService)
-			h := &ShortenerHandler{
-				Service: mockService,
-			}
+			synctest.Test(t, func(t *testing.T) {
+				mockService := mocks.NewShortenerService(t)
+				mockPublisher := mocks.NewAuditPublisher(t)
+				tt.setupMock(mockService, mockPublisher)
+				h := &ShortenerHandler{
+					Service: mockService,
+					audit:   mockPublisher,
+				}
 
-			r := httptest.NewRequest(http.MethodGet, "/abcdef", nil)
-			w := httptest.NewRecorder()
-			h.GetValue(w, r)
+				r := httptest.NewRequest(http.MethodGet, "/abcdef", nil)
+				w := httptest.NewRecorder()
+				h.GetValue(w, r)
+				synctest.Wait()
 
-			res := w.Result()
-			defer res.Body.Close()
-			assert.Equal(t, tt.want.statusCode, res.StatusCode)
-			assert.Equal(t, tt.want.location, res.Header.Get("Location"))
-			mockService.AssertExpectations(t)
+				res := w.Result()
+				defer res.Body.Close()
+				assert.Equal(t, tt.want.statusCode, res.StatusCode)
+				assert.Equal(t, tt.want.location, res.Header.Get("Location"))
+				mockService.AssertExpectations(t)
+			})
 		})
 	}
 }

@@ -16,6 +16,8 @@ type Config struct {
 	FileStoragePath  string `env:"FILE_STORAGE_PATH"`
 	DBDSN            string `env:"DATABASE_DSN"`
 	AuthCookieSecret string `env:"AUTH_COOKIE_SECRET" envDefault:"secret_key"`
+	AuditFile        string `env:"AUDIT_FILE"`
+	AuditURL         string `env:"AUDIT_URL"`
 }
 
 func (c Config) checkBasePath() error {
@@ -38,6 +40,8 @@ func ParseConfig() (*Config, error) {
 	flag.StringVar(&cfg.BasePath, "b", basePathDefault, "base path")
 	flag.StringVar(&cfg.FileStoragePath, "f", "file_storage.txt", "file storage path")
 	flag.StringVar(&cfg.DBDSN, "d", "", "database connection string")
+	flag.StringVar(&cfg.AuditFile, "audit-file", "", "audit file path")
+	flag.StringVar(&cfg.AuditURL, "audit-url", "", "audit url")
 	flag.Parse()
 	err := env.Parse(&cfg)
 	if err != nil {
