@@ -9,6 +9,7 @@ import (
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/config/db/pg"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/handler"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/logger"
+	"github.com/alxaxenov/url-shortener/tree/v2/internal/middleware"
 	repo_db "github.com/alxaxenov/url-shortener/tree/v2/internal/repository/db"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/repository/memory"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/service"
@@ -48,8 +49,10 @@ func run() error {
 		}
 	}
 
-	srv := service.NewShortenerService(repo, cfg.BasePath)
-	h := &handler.ShortenerHandler{Service: srv, DB: dbConn}
+	srv := service.NewShortenerService(repo, cfg.BasePath, 3)
+	defer srv.CLoseDeleteChan()
+	h := handler.NewShortenerHandler(srv, dbConn)
+	userMiddleware := middleware.NewUserMiddleware(cfg.AuthCookieSecret, repo)
 
-	return handler.Serve(cfg.Addr, h)
+	return handler.Serve(cfg.Addr, h, userMiddleware)
 }

@@ -11,18 +11,32 @@ import (
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/logger"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/model"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/service"
+	"github.com/alxaxenov/url-shortener/tree/v2/internal/utils"
 )
 
 //go:generate mockery --name ShortenerService --with-expecter=true --filename mock_shortener_service.go
 type ShortenerService interface {
-	AddURL(context.Context, string) (string, error)
+	AddURL(context.Context, string, int) (string, error)
 	GetURL(context.Context, string) (string, error)
-	SaveBatch(context.Context, model.LoadBatchRequest) ([]model.BatchResponse, error)
+	SaveBatch(context.Context, model.LoadBatchRequest, int) ([]model.BatchResponse, error)
+	UserURLs(context.Context, int) ([]model.UserURLs, error)
+	AppendDelete(int, model.DeleteURLs)
+}
+
+type SemaphoreInt interface {
+	Acquire()
+	Release()
 }
 
 type ShortenerHandler struct {
-	Service ShortenerService
-	DB      db.DBTX
+	Service         ShortenerService
+	DB              db.DBTX
+	deleteSemaphore SemaphoreInt
+}
+
+func NewShortenerHandler(s ShortenerService, d db.DBTX) Handler {
+	semaphore := utils.NewSemaphore(5)
+	return &ShortenerHandler{Service: s, DB: d, deleteSemaphore: semaphore}
 }
 
 func (h *ShortenerHandler) AddValue(w http.ResponseWriter, r *http.Request) {
@@ -36,8 +50,12 @@ func (h *ShortenerHandler) AddValue(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	userID, err := utils.GetUserID(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+	}
 	responseStatus := http.StatusCreated
-	short, err := h.Service.AddURL(r.Context(), string(b))
+	short, err := h.Service.AddURL(r.Context(), string(b), userID)
 	if err != nil {
 		var badURL *service.BadURL
 		var alreadyExists *service.AlreadyExists
@@ -61,8 +79,15 @@ func (h *ShortenerHandler) AddValue(w http.ResponseWriter, r *http.Request) {
 func (h *ShortenerHandler) GetValue(w http.ResponseWriter, r *http.Request) {
 	u, err := h.Service.GetURL(r.Context(), r.PathValue("id"))
 	if err != nil {
-		logger.Logger.Error("GetValue service.GetURL", "error", err)
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		var status int
+		if errors.Is(err, service.ErrURLDeleted) {
+			status = http.StatusGone
+		} else {
+			logger.Logger.Error("GetValue service.GetURL", "error", err)
+			status = http.StatusInternalServerError
+		}
+
+		http.Error(w, http.StatusText(status), status)
 		return
 	}
 	w.Header().Set("Location", u)
@@ -75,8 +100,12 @@ func (h *ShortenerHandler) AddValueJSON(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	userID, err := utils.GetUserID(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+	}
 	responseStatus := http.StatusCreated
-	short, err := h.Service.AddURL(r.Context(), req.URL)
+	short, err := h.Service.AddURL(r.Context(), req.URL, userID)
 	if err != nil {
 		var badURL *service.BadURL
 		var alreadyExists *service.AlreadyExists
@@ -120,7 +149,11 @@ func (h *ShortenerHandler) SaveBatch(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	data, err := h.Service.SaveBatch(r.Context(), req)
+	userID, err := utils.GetUserID(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+	}
+	data, err := h.Service.SaveBatch(r.Context(), req, userID)
 	if err != nil {
 		logger.Logger.Error("SaveBatch service.SaveBatch", "error", err)
 		var badURL *service.BadURL
@@ -140,4 +173,52 @@ func (h *ShortenerHandler) SaveBatch(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("content-type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	w.Write(respData)
+}
+
+func (h *ShortenerHandler) UserURLs(w http.ResponseWriter, r *http.Request) {
+	userID, err := utils.GetUserID(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+	}
+	data, err := h.Service.UserURLs(r.Context(), userID)
+	if err != nil {
+		logger.Logger.Error("UserURLs service.UserUrls", "error", err)
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+	status := http.StatusOK
+	var respData []byte
+	if len(data) == 0 {
+		status = http.StatusNoContent
+		respData = []byte(http.StatusText(http.StatusNoContent))
+	} else {
+		respData, err = json.Marshal(model.UserURLsResponse(data))
+		if err != nil {
+			logger.Logger.Error("UserURLs response marshal", "error", err)
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
+		}
+	}
+	w.Header().Set("content-type", "application/json")
+	w.WriteHeader(status)
+	w.Write(respData)
+}
+
+func (h *ShortenerHandler) DeleteURLs(w http.ResponseWriter, r *http.Request) {
+	userID, err := utils.GetUserID(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+	}
+	req := model.DeleteURLs{}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	go func() {
+		h.deleteSemaphore.Acquire()
+		h.Service.AppendDelete(userID, req)
+		defer h.deleteSemaphore.Release()
+	}()
+	w.WriteHeader(http.StatusAccepted)
+	w.Write([]byte(http.StatusText(http.StatusAccepted)))
 }

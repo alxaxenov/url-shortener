@@ -7,22 +7,27 @@ import (
 	"fmt"
 	"net/url"
 
+	"github.com/alxaxenov/url-shortener/tree/v2/internal/logger"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/model"
 )
 
 type ShortenerRepo interface {
-	SetValue(context.Context, string, string) (string, error)
-	GetValue(context.Context, string) (string, error)
-	SaveBatch(context.Context, []UploadBatch) error
+	SetValue(context.Context, string, string, int) (string, error)
+	GetValue(context.Context, string) (string, bool, error)
+	SaveBatch(context.Context, []UploadBatch, int) error
+	CreateUser(context.Context) (int, error)
+	UserURLs(context.Context, int) ([]model.UserURLs, error)
+	DeleteURLs(context.Context, *model.DeleteRequest) (int, error)
 }
 
 type ShortenerService struct {
-	repo        ShortenerRepo
-	basePath    string
-	base62Chars string
+	repo          ShortenerRepo
+	basePath      string
+	base62Chars   string
+	DeleteMsgChan chan model.DeleteRequest
 }
 
-func (s *ShortenerService) AddURL(ctx context.Context, u string) (string, error) {
+func (s *ShortenerService) AddURL(ctx context.Context, u string, userID int) (string, error) {
 	if _, err := url.ParseRequestURI(u); err != nil {
 		return "", NewBadURL(u, err)
 	}
@@ -32,7 +37,7 @@ func (s *ShortenerService) AddURL(ctx context.Context, u string) (string, error)
 		return "", err
 	}
 
-	inserted, err := s.repo.SetValue(ctx, hashURL, u)
+	inserted, err := s.repo.SetValue(ctx, hashURL, u, userID)
 	if err != nil {
 		return "", err
 	}
@@ -67,7 +72,14 @@ func (s *ShortenerService) getShort() (string, error) {
 }
 
 func (s *ShortenerService) GetURL(ctx context.Context, short string) (string, error) {
-	return s.repo.GetValue(ctx, short)
+	v, active, err := s.repo.GetValue(ctx, short)
+	if err != nil {
+		return "", err
+	}
+	if !active {
+		return "", ErrURLDeleted
+	}
+	return v, nil
 }
 
 type UploadBatch struct {
@@ -75,7 +87,7 @@ type UploadBatch struct {
 	Origin string
 }
 
-func (s *ShortenerService) SaveBatch(ctx context.Context, batches model.LoadBatchRequest) ([]model.BatchResponse, error) {
+func (s *ShortenerService) SaveBatch(ctx context.Context, batches model.LoadBatchRequest, userID int) ([]model.BatchResponse, error) {
 	var resultBatches []model.BatchResponse
 	var UploadBatches []UploadBatch
 	for _, batch := range batches {
@@ -93,16 +105,58 @@ func (s *ShortenerService) SaveBatch(ctx context.Context, batches model.LoadBatc
 		UploadBatches = append(UploadBatches, UploadBatch{hashURL, batch.OriginalURL})
 		resultBatches = append(resultBatches, model.BatchResponse{CorrelationID: batch.CorrelationID, ShortURL: joined})
 	}
-	if err := s.repo.SaveBatch(ctx, UploadBatches); err != nil {
+	if err := s.repo.SaveBatch(ctx, UploadBatches, userID); err != nil {
 		return nil, err
 	}
 	return resultBatches, nil
 }
 
-func NewShortenerService(repo ShortenerRepo, basePath string) *ShortenerService {
-	return &ShortenerService{
-		repo:        repo,
-		basePath:    basePath,
-		base62Chars: "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz",
+func (s *ShortenerService) UserURLs(ctx context.Context, userID int) ([]model.UserURLs, error) {
+	data, err := s.repo.UserURLs(ctx, userID)
+	if err != nil {
+		return nil, err
 	}
+	for i := range data {
+		data[i].Short, err = url.JoinPath(s.basePath, data[i].Short)
+		if err != nil {
+			return nil, fmt.Errorf("UserURLs failed to join path for %s %w", data[i].Short, err)
+		}
+	}
+	return data, nil
+}
+
+func (s *ShortenerService) deleteWorker() {
+	for msg := range s.DeleteMsgChan {
+		if len(msg.URLs) == 0 {
+			logger.Logger.Infof("Delete URLs is empty user %d", msg.UserID)
+			continue
+		}
+		affected, err := s.repo.DeleteURLs(context.Background(), &msg)
+		if err != nil {
+			logger.Logger.Error("DeleteURLs error", "error", err)
+		} else {
+			logger.Logger.Infof("DeleteURLs affected %d rows", affected)
+		}
+	}
+}
+
+func (s *ShortenerService) CLoseDeleteChan() {
+	close(s.DeleteMsgChan)
+}
+
+func (s *ShortenerService) AppendDelete(userID int, URLs model.DeleteURLs) {
+	s.DeleteMsgChan <- model.DeleteRequest{UserID: userID, URLs: URLs}
+}
+
+func NewShortenerService(repo ShortenerRepo, basePath string, deleteWorkers int) *ShortenerService {
+	instance := &ShortenerService{
+		repo:          repo,
+		basePath:      basePath,
+		base62Chars:   "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz",
+		DeleteMsgChan: make(chan model.DeleteRequest, 1024),
+	}
+	for range deleteWorkers {
+		go instance.deleteWorker()
+	}
+	return instance
 }
