@@ -8,7 +8,7 @@ import (
 
 type NewWriter struct{}
 
-func (p *NewWriter) NewWriter(filepath string) (WriterInt, error) {
+func (p *NewWriter) NewWriter(filepath string) (Writer, error) {
 	file, err := os.OpenFile(filepath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0666)
 	if err != nil {
 		return nil, fmt.Errorf("NewWriter open file error: %w", err)

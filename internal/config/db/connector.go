@@ -15,7 +15,7 @@ type DBTX interface {
 	BeginTx(context.Context, *sql.TxOptions) (*sql.Tx, error)
 }
 
-type ConnectorInt interface {
+type IConnector interface {
 	Open(ctx context.Context) (*sql.DB, error)
 	Close() error
 	Migrate(*sql.DB) error

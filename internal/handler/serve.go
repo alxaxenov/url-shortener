@@ -9,7 +9,7 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-type Handler interface {
+type IHandler interface {
 	AddValue(w http.ResponseWriter, r *http.Request)
 	GetValue(w http.ResponseWriter, r *http.Request)
 	AddValueJSON(w http.ResponseWriter, r *http.Request)
@@ -19,7 +19,7 @@ type Handler interface {
 	DeleteURLs(w http.ResponseWriter, r *http.Request)
 }
 
-type ComplexMiddleware interface {
+type IComplexMiddleware interface {
 	Use(http.Handler) http.Handler
 }
 
@@ -28,7 +28,7 @@ const (
 	timeoutBatch   = 5 * time.Second
 )
 
-func Serve(addr string, h Handler, userMiddleware ComplexMiddleware) error {
+func Serve(addr string, h IHandler, userMiddleware IComplexMiddleware) error {
 	r := chi.NewRouter()
 
 	r.Use(middleware.GzipMiddleware)

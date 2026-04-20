@@ -7,12 +7,12 @@ import (
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/logger"
 )
 
-type remoteClient interface {
+type IremoteClient interface {
 	Notify([]byte) error
 }
 
 type remoteObserver struct {
-	client remoteClient
+	client IremoteClient
 }
 
 func newRemoteObserver(URL string) *remoteObserver {

@@ -10,7 +10,7 @@ import (
 
 type NewReader struct{}
 
-func (c *NewReader) NewReader(filepath string) (ReaderInt, error) {
+func (c *NewReader) NewReader(filepath string) (Reader, error) {
 	_, err := os.Stat(filepath)
 	if os.IsNotExist(err) {
 		logger.Logger.Info("file does not exist")

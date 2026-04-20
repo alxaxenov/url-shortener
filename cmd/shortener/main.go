@@ -43,7 +43,7 @@ func run() error {
 	}
 
 	var dbConn db.DBTX
-	var repo service.ShortenerRepo
+	var repo service.IShortenerRepo
 	if cfg.DBDSN != "" {
 		connector := pg.NewPGConnector(cfg.DBDSN)
 		dbConn, err = connector.Open(context.Background())

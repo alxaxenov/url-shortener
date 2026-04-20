@@ -12,19 +12,25 @@ import (
 	"github.com/golang-jwt/jwt/v4"
 )
 
-type Claims struct {
-	jwt.RegisteredClaims
-	UserID int `json:"user_id"`
-}
+type (
+	Claims struct {
+		jwt.RegisteredClaims
+		UserID int `json:"user_id"`
+	}
 
-type UserRepoInt interface {
-	CreateUser(ctx context.Context) (int, error)
-}
+	IUserRepo interface {
+		CreateUser(ctx context.Context) (int, error)
+	}
+)
 
 type UserMiddleware struct {
 	secretKey     string
 	CookieAuthKey string
-	UserRepo      UserRepoInt
+	UserRepo      IUserRepo
+}
+
+func NewUserMiddleware(secretKey string, userRepo IUserRepo) *UserMiddleware {
+	return &UserMiddleware{secretKey: secretKey, CookieAuthKey: config.CookieAuthKey, UserRepo: userRepo}
 }
 
 func (m *UserMiddleware) Use(next http.Handler) http.Handler {
@@ -96,8 +102,4 @@ func (m *UserMiddleware) buildTokenString(id int) (string, error) {
 		return "", fmt.Errorf("error signing token: %w", err)
 	}
 	return tokenString, nil
-}
-
-func NewUserMiddleware(secretKey string, userRepo UserRepoInt) *UserMiddleware {
-	return &UserMiddleware{secretKey: secretKey, CookieAuthKey: config.CookieAuthKey, UserRepo: userRepo}
 }

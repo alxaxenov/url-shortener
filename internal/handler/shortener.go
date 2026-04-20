@@ -16,8 +16,8 @@ import (
 )
 
 //go:generate mockery --name Reader --srcpkg io --with-expecter=true --output ./mocks --outpkg mocks --filename mock_io_reader.go
-//go:generate mockery --name ShortenerService --with-expecter=true --filename mock_shortener_service.go
-type ShortenerService interface {
+//go:generate mockery --name IShortenerService --with-expecter=true --filename mock_shortener_service.go
+type IShortenerService interface {
 	AddURL(context.Context, string, int) (string, error)
 	GetURL(context.Context, string) (string, error)
 	SaveBatch(context.Context, model.LoadBatchRequest, int) ([]model.BatchResponse, error)
@@ -25,7 +25,7 @@ type ShortenerService interface {
 	AppendDelete(int, model.DeleteURLs)
 }
 
-type SemaphoreInt interface {
+type ISemaphore interface {
 	Acquire()
 	Release()
 }
@@ -36,13 +36,13 @@ type AuditPublisher interface {
 }
 
 type ShortenerHandler struct {
-	Service         ShortenerService
+	Service         IShortenerService
 	DB              db.DBTX
-	deleteSemaphore SemaphoreInt
+	deleteSemaphore ISemaphore
 	audit           AuditPublisher
 }
 
-func NewShortenerHandler(s ShortenerService, d db.DBTX, audit AuditPublisher) Handler {
+func NewShortenerHandler(s IShortenerService, d db.DBTX, audit AuditPublisher) IHandler {
 	semaphore := utils.NewSemaphore(5)
 	return &ShortenerHandler{Service: s, DB: d, deleteSemaphore: semaphore, audit: audit}
 }

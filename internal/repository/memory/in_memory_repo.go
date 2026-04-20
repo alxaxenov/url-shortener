@@ -16,35 +16,43 @@ import (
 
 var timeFormat = time.RFC3339
 
-type urlData struct {
-	ShortURL    string `json:"short_url"`
-	OriginalURL string `json:"original_url"`
-	CreatedAt   string `json:"created_at"`
-	UserID      int    `json:"user_id"`
-	Active      bool   `json:"active"`
-}
+type (
+	urlData struct {
+		ShortURL    string `json:"short_url"`
+		OriginalURL string `json:"original_url"`
+		CreatedAt   string `json:"created_at"`
+		UserID      int    `json:"user_id"`
+		Active      bool   `json:"active"`
+	}
+
+	Value struct {
+		original  string
+		createdAt time.Time
+		userID    int
+		active    bool
+	}
+)
 
 func (d urlData) isValid() bool {
 	return d.ShortURL != "" && d.OriginalURL != ""
 }
 
-type persistInt interface {
+type Ipersist interface {
 	addData(string, string, time.Time, int, bool) error
 	getData() ([]urlData, error)
-}
-
-type Value struct {
-	original  string
-	createdAt time.Time
-	userID    int
-	active    bool
 }
 
 type inMemoryRepo struct {
 	urls      map[string]Value
 	usersURLs map[int][]string
 	maxUserID int
-	persist   persistInt
+	persist   Ipersist
+}
+
+func NewInMemoryRepo(persist Ipersist) (service.IShortenerRepo, error) {
+	repo := &inMemoryRepo{make(map[string]Value), make(map[int][]string), 0, persist}
+	err := repo.loadFromPersist()
+	return repo, err
 }
 
 func (r *inMemoryRepo) SetValue(ctx context.Context, k string, v string, userID int) (string, error) {
@@ -146,10 +154,4 @@ func (r *inMemoryRepo) DeleteURLs(ctx context.Context, deleteReq *model.DeleteRe
 		affected++
 	}
 	return affected, nil
-}
-
-func NewInMemoryRepo(persist persistInt) (service.ShortenerRepo, error) {
-	repo := &inMemoryRepo{make(map[string]Value), make(map[int][]string), 0, persist}
-	err := repo.loadFromPersist()
-	return repo, err
 }

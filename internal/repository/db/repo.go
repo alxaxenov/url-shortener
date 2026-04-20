@@ -15,7 +15,11 @@ import (
 )
 
 type DBRepo struct {
-	Connector db_pack.ConnectorInt
+	Connector db_pack.IConnector
+}
+
+func NewDBRepo(c db_pack.IConnector) service.IShortenerRepo {
+	return &DBRepo{c}
 }
 
 func (d *DBRepo) SetValue(ctx context.Context, short string, origin string, userID int) (string, error) {
@@ -125,8 +129,4 @@ func (d *DBRepo) DeleteURLs(ctx context.Context, deleteReq *model.DeleteRequest)
 	}
 
 	return int(rowsAffected), nil
-}
-
-func NewDBRepo(c db_pack.ConnectorInt) service.ShortenerRepo {
-	return &DBRepo{c}
 }

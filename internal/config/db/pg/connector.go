@@ -17,6 +17,10 @@ type ConnectorPG struct {
 	db.Connector
 }
 
+func NewPGConnector(dsn string) *ConnectorPG {
+	return &ConnectorPG{Connector: db.Connector{DSN: dsn}}
+}
+
 func (c *ConnectorPG) Open(ctx context.Context) (*sql.DB, error) {
 	dataBase, err := sql.Open("pgx", c.DSN)
 	if err != nil {
@@ -48,8 +52,4 @@ func (c *ConnectorPG) Migrate(dataBase *sql.DB) error {
 		return fmt.Errorf("migration Up error: %w", err)
 	}
 	return nil
-}
-
-func NewPGConnector(dsn string) *ConnectorPG {
-	return &ConnectorPG{Connector: db.Connector{DSN: dsn}}
 }

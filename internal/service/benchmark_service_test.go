@@ -11,7 +11,7 @@ import (
 )
 
 func BenchmarkGetShort(b *testing.B) {
-	repoMock := mocks.NewShortenerRepo(b)
+	repoMock := mocks.NewIShortenerRepo(b)
 	service := &ShortenerService{
 		repo:          repoMock,
 		basePath:      "",
@@ -26,7 +26,7 @@ func BenchmarkGetShort(b *testing.B) {
 }
 
 func BenchmarkSaveBatch(b *testing.B) {
-	repoMock := mocks.NewShortenerRepo(b)
+	repoMock := mocks.NewIShortenerRepo(b)
 	repoMock.EXPECT().SaveBatch(mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	service := &ShortenerService{
 		repo:          repoMock,
@@ -47,7 +47,7 @@ func BenchmarkSaveBatch(b *testing.B) {
 }
 
 func BenchmarkAddURL(b *testing.B) {
-	repoMock := mocks.NewShortenerRepo(b)
+	repoMock := mocks.NewIShortenerRepo(b)
 	repoMock.EXPECT().SetValue(mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 		Return("inserted", nil)
 	service := &ShortenerService{
@@ -69,7 +69,7 @@ func BenchmarkUserURLs(b *testing.B) {
 	for i := range data {
 		data[i] = model.UserURLs{"short", "http://original.com"}
 	}
-	repoMock := mocks.NewShortenerRepo(b)
+	repoMock := mocks.NewIShortenerRepo(b)
 	repoMock.EXPECT().UserURLs(mock.Anything, mock.Anything).
 		RunAndReturn(func(ctx context.Context, userID int) ([]model.UserURLs, error) {
 			out := make([]model.UserURLs, len(data))
@@ -90,7 +90,7 @@ func BenchmarkUserURLs(b *testing.B) {
 }
 
 func BenchmarkGetURL(b *testing.B) {
-	repoMock := mocks.NewShortenerRepo(b)
+	repoMock := mocks.NewIShortenerRepo(b)
 	repoMock.EXPECT().GetValue(mock.Anything, mock.Anything).Return("http://origin.com", true, nil)
 	service := &ShortenerService{
 		repo:          repoMock,

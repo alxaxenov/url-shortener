@@ -12,8 +12,8 @@ import (
 	repoModel "github.com/alxaxenov/url-shortener/tree/v2/internal/repository/model"
 )
 
-//go:generate mockery --name ShortenerRepo --with-expecter=true --filename mock_shortener_repo.go
-type ShortenerRepo interface {
+//go:generate mockery --name IShortenerRepo --with-expecter=true --filename mock_shortener_repo.go
+type IShortenerRepo interface {
 	SetValue(context.Context, string, string, int) (string, error)
 	GetValue(context.Context, string) (string, bool, error)
 	SaveBatch(context.Context, []repoModel.UploadBatch, int) error
@@ -23,10 +23,23 @@ type ShortenerRepo interface {
 }
 
 type ShortenerService struct {
-	repo          ShortenerRepo
+	repo          IShortenerRepo
 	basePath      string
 	base62Chars   string
 	DeleteMsgChan chan model.DeleteRequest
+}
+
+func NewShortenerService(repo IShortenerRepo, basePath string, deleteWorkers int) *ShortenerService {
+	instance := &ShortenerService{
+		repo:          repo,
+		basePath:      basePath,
+		base62Chars:   "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz",
+		DeleteMsgChan: make(chan model.DeleteRequest, 1024),
+	}
+	for range deleteWorkers {
+		go instance.deleteWorker()
+	}
+	return instance
 }
 
 func (s *ShortenerService) AddURL(ctx context.Context, u string, userID int) (string, error) {
@@ -56,21 +69,6 @@ func (s *ShortenerService) AddURL(ctx context.Context, u string, userID int) (st
 		resultErr = NewAlreadyExists(inserted, u)
 	}
 	return joined, resultErr
-}
-
-func (s *ShortenerService) getShort() (string, error) {
-	b := make([]byte, 6)
-	_, err := rand.Read(b)
-	if err != nil {
-		return "", fmt.Errorf("getShort rand error: %w", err)
-	}
-	num := binary.BigEndian.Uint64(append([]byte{0, 0}, b...))
-	var res = make([]byte, 0, 8)
-	for num > 0 {
-		res = append(res, s.base62Chars[num%62])
-		num /= 62
-	}
-	return string(res), nil
 }
 
 func (s *ShortenerService) GetURL(ctx context.Context, short string) (string, error) {
@@ -122,6 +120,29 @@ func (s *ShortenerService) UserURLs(ctx context.Context, userID int) ([]model.Us
 	return data, nil
 }
 
+func (s *ShortenerService) CLoseDeleteChan() {
+	close(s.DeleteMsgChan)
+}
+
+func (s *ShortenerService) AppendDelete(userID int, URLs model.DeleteURLs) {
+	s.DeleteMsgChan <- model.DeleteRequest{UserID: userID, URLs: URLs}
+}
+
+func (s *ShortenerService) getShort() (string, error) {
+	b := make([]byte, 6)
+	_, err := rand.Read(b)
+	if err != nil {
+		return "", fmt.Errorf("getShort rand error: %w", err)
+	}
+	num := binary.BigEndian.Uint64(append([]byte{0, 0}, b...))
+	var res = make([]byte, 0, 8)
+	for num > 0 {
+		res = append(res, s.base62Chars[num%62])
+		num /= 62
+	}
+	return string(res), nil
+}
+
 func (s *ShortenerService) deleteWorker() {
 	for msg := range s.DeleteMsgChan {
 		if len(msg.URLs) == 0 {
@@ -135,25 +156,4 @@ func (s *ShortenerService) deleteWorker() {
 			logger.Logger.Infof("DeleteURLs affected %d rows", affected)
 		}
 	}
-}
-
-func (s *ShortenerService) CLoseDeleteChan() {
-	close(s.DeleteMsgChan)
-}
-
-func (s *ShortenerService) AppendDelete(userID int, URLs model.DeleteURLs) {
-	s.DeleteMsgChan <- model.DeleteRequest{UserID: userID, URLs: URLs}
-}
-
-func NewShortenerService(repo ShortenerRepo, basePath string, deleteWorkers int) *ShortenerService {
-	instance := &ShortenerService{
-		repo:          repo,
-		basePath:      basePath,
-		base62Chars:   "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz",
-		DeleteMsgChan: make(chan model.DeleteRequest, 1024),
-	}
-	for range deleteWorkers {
-		go instance.deleteWorker()
-	}
-	return instance
 }
