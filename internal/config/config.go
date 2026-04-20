@@ -18,6 +18,7 @@ type Config struct {
 	AuthCookieSecret string `env:"AUTH_COOKIE_SECRET" envDefault:"secret_key"`
 	AuditFile        string `env:"AUDIT_FILE"`
 	AuditURL         string `env:"AUDIT_URL"`
+	RunPPROF         bool   `env:"RUN_PPROF" envDefault:"false"`
 }
 
 func (c Config) checkBasePath() error {

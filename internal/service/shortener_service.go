@@ -9,12 +9,14 @@ import (
 
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/logger"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/model"
+	repoModel "github.com/alxaxenov/url-shortener/tree/v2/internal/repository/model"
 )
 
+//go:generate mockery --name ShortenerRepo --with-expecter=true --filename mock_shortener_repo.go
 type ShortenerRepo interface {
 	SetValue(context.Context, string, string, int) (string, error)
 	GetValue(context.Context, string) (string, bool, error)
-	SaveBatch(context.Context, []UploadBatch, int) error
+	SaveBatch(context.Context, []repoModel.UploadBatch, int) error
 	CreateUser(context.Context) (int, error)
 	UserURLs(context.Context, int) ([]model.UserURLs, error)
 	DeleteURLs(context.Context, *model.DeleteRequest) (int, error)
@@ -82,14 +84,9 @@ func (s *ShortenerService) GetURL(ctx context.Context, short string) (string, er
 	return v, nil
 }
 
-type UploadBatch struct {
-	Short  string
-	Origin string
-}
-
 func (s *ShortenerService) SaveBatch(ctx context.Context, batches model.LoadBatchRequest, userID int) ([]model.BatchResponse, error) {
-	var resultBatches []model.BatchResponse
-	var UploadBatches []UploadBatch
+	resultBatches := make([]model.BatchResponse, 0, len(batches))
+	UploadBatches := make([]repoModel.UploadBatch, 0, len(batches))
 	for _, batch := range batches {
 		if _, err := url.ParseRequestURI(batch.OriginalURL); err != nil {
 			return nil, NewBadURL(batch.OriginalURL, err)
@@ -102,7 +99,7 @@ func (s *ShortenerService) SaveBatch(ctx context.Context, batches model.LoadBatc
 		if err != nil {
 			return nil, fmt.Errorf("SaveBatch failed to join path %w", err)
 		}
-		UploadBatches = append(UploadBatches, UploadBatch{hashURL, batch.OriginalURL})
+		UploadBatches = append(UploadBatches, repoModel.UploadBatch{hashURL, batch.OriginalURL})
 		resultBatches = append(resultBatches, model.BatchResponse{CorrelationID: batch.CorrelationID, ShortURL: joined})
 	}
 	if err := s.repo.SaveBatch(ctx, UploadBatches, userID); err != nil {

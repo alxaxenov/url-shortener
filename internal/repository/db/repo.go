@@ -9,6 +9,7 @@ import (
 	db_pack "github.com/alxaxenov/url-shortener/tree/v2/internal/config/db"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/logger"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/model"
+	repoModel "github.com/alxaxenov/url-shortener/tree/v2/internal/repository/model"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/service"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/utils"
 )
@@ -43,7 +44,7 @@ func (d *DBRepo) GetValue(ctx context.Context, short string) (string, bool, erro
 	return originalURL, active, nil
 }
 
-func (d *DBRepo) SaveBatch(ctx context.Context, batches []service.UploadBatch, userID int) error {
+func (d *DBRepo) SaveBatch(ctx context.Context, batches []repoModel.UploadBatch, userID int) error {
 	db := d.Connector.GetDB()
 	createdAt := time.Now()
 	valueStrings := make([]string, 0, len(batches))
@@ -76,12 +77,19 @@ func (d *DBRepo) CreateUser(ctx context.Context) (int, error) {
 
 func (d *DBRepo) UserURLs(ctx context.Context, id int) ([]model.UserURLs, error) {
 	db := d.Connector.GetDB()
+
+	var count int
+	err := db.QueryRowContext(ctx, "SELECT COUNT(*) FROM urls WHERE user_id = $1 AND active = true", id).Scan(&count)
+	if err != nil {
+		return nil, fmt.Errorf("UserURLs count failed: %w", err)
+	}
+
 	rows, err := db.QueryContext(ctx, "SELECT short_url, original_url, active FROM urls WHERE user_id = $1", id)
 	if err != nil {
 		return nil, fmt.Errorf("UserURLs failed to fetch urls: %w", err)
 	}
 	defer rows.Close()
-	URLs := make([]model.UserURLs, 0)
+	URLs := make([]model.UserURLs, count)
 	for rows.Next() {
 		var URL model.UserURLs
 		var active bool

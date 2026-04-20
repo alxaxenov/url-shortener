@@ -9,6 +9,7 @@ import (
 
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/logger"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/model"
+	repoModel "github.com/alxaxenov/url-shortener/tree/v2/internal/repository/model"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/service"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/utils"
 )
@@ -94,7 +95,7 @@ func (r *inMemoryRepo) loadFromPersist() error {
 	return nil
 }
 
-func (r *inMemoryRepo) SaveBatch(ctx context.Context, batches []service.UploadBatch, userID int) error {
+func (r *inMemoryRepo) SaveBatch(ctx context.Context, batches []repoModel.UploadBatch, userID int) error {
 	for _, batch := range batches {
 		_, err := r.SetValue(ctx, batch.Short, batch.Origin, userID)
 		if err != nil {

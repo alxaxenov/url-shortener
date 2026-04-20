@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"log"
+	"net/http"
+	_ "net/http/pprof"
 
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/config"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/config/db"
@@ -29,6 +31,15 @@ func run() error {
 	cfg, err := config.ParseConfig()
 	if err != nil {
 		return err
+	}
+
+	if cfg.RunPPROF {
+		go func() {
+			log.Println("pprof listening on :6060")
+			if err := http.ListenAndServe(":6060", nil); err != nil {
+				log.Printf("pprof error: %v", err)
+			}
+		}()
 	}
 
 	var dbConn db.DBTX
