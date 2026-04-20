@@ -89,7 +89,7 @@ func (d *DBRepo) UserURLs(ctx context.Context, id int) ([]model.UserURLs, error)
 		return nil, fmt.Errorf("UserURLs failed to fetch urls: %w", err)
 	}
 	defer rows.Close()
-	URLs := make([]model.UserURLs, count)
+	URLs := make([]model.UserURLs, 0, count)
 	for rows.Next() {
 		var URL model.UserURLs
 		var active bool
