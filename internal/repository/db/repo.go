@@ -84,7 +84,7 @@ func (d *DBRepo) UserURLs(ctx context.Context, id int) ([]model.UserURLs, error)
 		return nil, fmt.Errorf("UserURLs count failed: %w", err)
 	}
 
-	rows, err := db.QueryContext(ctx, "SELECT short_url, original_url, active FROM urls WHERE user_id = $1", id)
+	rows, err := db.QueryContext(ctx, "SELECT short_url, original_url, active FROM urls WHERE active = true AND user_id = $1", id)
 	if err != nil {
 		return nil, fmt.Errorf("UserURLs failed to fetch urls: %w", err)
 	}
