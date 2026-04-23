@@ -18,21 +18,27 @@ type (
 		UserID int `json:"user_id"`
 	}
 
+	// IUserRepo интерфейс слоя репозитория.
 	IUserRepo interface {
 		CreateUser(ctx context.Context) (int, error)
 	}
 )
 
+// UserMiddleware структура middleware для аутентификации пользователя.
 type UserMiddleware struct {
 	secretKey     string
 	CookieAuthKey string
 	UserRepo      IUserRepo
 }
 
+// NewUserMiddleware конструктор UserMiddleware.
 func NewUserMiddleware(secretKey string, userRepo IUserRepo) *UserMiddleware {
 	return &UserMiddleware{secretKey: secretKey, CookieAuthKey: config.CookieAuthKey, UserRepo: userRepo}
 }
 
+// Use основная логика middleware.
+// Если в запросе пользователя не содержится куки или она недействительна, выдаем новую.
+// Если кука есть, но не содержит информацию о пользователе - отдаем 401.
 func (m *UserMiddleware) Use(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		cookie, err := r.Cookie(m.CookieAuthKey)
@@ -75,10 +81,11 @@ func (m *UserMiddleware) Use(next http.Handler) http.Handler {
 	})
 }
 
+// getUserID получение id пользователя из токена.
 func (m *UserMiddleware) getUserID(tokenString string) (int, error) {
 	claims := &Claims{}
 	token, err := jwt.ParseWithClaims(tokenString, claims,
-		func(t *jwt.Token) (interface{}, error) {
+		func(t *jwt.Token) (any, error) {
 			if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
 			}
@@ -93,6 +100,7 @@ func (m *UserMiddleware) getUserID(tokenString string) (int, error) {
 	return claims.UserID, nil
 }
 
+// buildTokenString генерация токена.
 func (m *UserMiddleware) buildTokenString(id int) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, Claims{
 		UserID: id,

@@ -18,6 +18,18 @@ import (
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/worker/audit"
 )
 
+// @Title UrlShortener API
+// @Description Сервис для сокращение url.
+// @Version 1.0
+
+// @Host localhost:8080
+// @schemes http
+
+// @SecurityDefinitions.apikey CookieAuth
+// @in header
+// @Name AUTH_SHORTEN_KEY
+// @description Авторизационный ключ, передаваемый в Cookie.
+
 func main() {
 	if err := logger.Initialize(); err != nil {
 		log.Fatal(err)

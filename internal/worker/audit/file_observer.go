@@ -7,14 +7,17 @@ import (
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/logger"
 )
 
+// fileObserver структура обработчика, пишет аудит в локальный файл.
 type fileObserver struct {
 	filePath string
 }
 
+// newFileObserver конструктор fileObserver.
 func newFileObserver(filePath string) *fileObserver {
 	return &fileObserver{filePath}
 }
 
+// notify логика сохранения аудита.
 func (f *fileObserver) notify(message Message) {
 	bytes, err := json.Marshal(message)
 	if err != nil {

@@ -15,6 +15,8 @@ import (
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/worker/audit"
 )
 
+// IShortenerService интерфейс слоя сервиса.
+//
 //go:generate mockery --name Reader --srcpkg io --with-expecter=true --output ./mocks --outpkg mocks --filename mock_io_reader.go
 //go:generate mockery --name IShortenerService --with-expecter=true --filename mock_shortener_service.go
 type IShortenerService interface {
@@ -25,16 +27,20 @@ type IShortenerService interface {
 	AppendDelete(int, model.DeleteURLs)
 }
 
+// ISemaphore интерфейс реализации семафора.
 type ISemaphore interface {
 	Acquire()
 	Release()
 }
 
+// AuditPublisher интерфейс интерфейс для взаимодействия с аудитом запросов.
+//
 //go:generate mockery --name AuditPublisher --with-expecter=true --filename mock_audit_publisher.go
 type AuditPublisher interface {
 	Publish(action audit.ActionType, userID int, URL string)
 }
 
+// ShortenerHandler общая структура хендлера сервиса, методы - отдельные ручки.
 type ShortenerHandler struct {
 	Service         IShortenerService
 	DB              db.DBTX
@@ -42,11 +48,23 @@ type ShortenerHandler struct {
 	audit           AuditPublisher
 }
 
+// NewShortenerHandler конструктор ShortenerHandler.
 func NewShortenerHandler(s IShortenerService, d db.DBTX, audit AuditPublisher) IHandler {
 	semaphore := utils.NewSemaphore(5)
 	return &ShortenerHandler{Service: s, DB: d, deleteSemaphore: semaphore, audit: audit}
 }
 
+// AddValue ручка генерации короткого URL принимает и отдает text/plain.
+//
+// @Summary Генерация короткого URL
+// @Accept  text/plain
+// @Produce text/plain
+// @Param original_url body string true "Оригинальный URL"
+// @Success 201 {string} string http://localhost:8080/5ufzFM0w
+// @Failure 400 {string} string "Внутренняя ошибка"
+// @Failure 409 {string} string http://localhost:8080/5ufzFM0w
+// @Failure 500 {string} string "Internal Server Error"
+// @Router / [post]
 func (h *ShortenerHandler) AddValue(w http.ResponseWriter, r *http.Request) {
 	if r.Header.Get("content-type") != "text/plain" {
 		http.Error(w, "unexpected content-type", http.StatusBadRequest)
@@ -87,6 +105,14 @@ func (h *ShortenerHandler) AddValue(w http.ResponseWriter, r *http.Request) {
 	io.WriteString(w, short)
 }
 
+// GetValue ручка получения ранее сохраненного URL.
+//
+// @Summary Получение оригинального URL
+// @Param short_url path string true "короткий URL"
+// @Success 307
+// @Failure 410 {string} string "Gone"
+// @Failure 500 {string} string "Internal Server Error"
+// @Router /{short_url} [get]
 func (h *ShortenerHandler) GetValue(w http.ResponseWriter, r *http.Request) {
 	u, err := h.Service.GetURL(r.Context(), r.PathValue("id"))
 	if err != nil {
@@ -109,6 +135,17 @@ func (h *ShortenerHandler) GetValue(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusTemporaryRedirect)
 }
 
+// AddValueJSON ручка генерации короткого URL принимает и отдает application/json.
+//
+// @Summary Генерация короткого URL
+// @Accept  json
+// @Produce json
+// @Param original_url body model.AddURLRequest true "Оригинальный URL"
+// @Success 201 {object} model.AddURLResponse
+// @Failure 400 {string} string "Внутренняя ошибка"
+// @Failure 409 {object} model.AddURLResponse
+// @Failure 500 {string} string "Internal Server Error"
+// @Router /api/shorten [post]
 func (h *ShortenerHandler) AddValueJSON(w http.ResponseWriter, r *http.Request) {
 	req := model.AddURLRequest{}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -150,6 +187,7 @@ func (h *ShortenerHandler) AddValueJSON(w http.ResponseWriter, r *http.Request) 
 	w.Write(respData)
 }
 
+// Ping техническая ручка проверки работоспособности сервиса, проверяет жива ли база данных.
 func (h *ShortenerHandler) Ping(w http.ResponseWriter, r *http.Request) {
 	if h.DB != nil {
 		if err := h.DB.PingContext(r.Context()); err != nil {
@@ -161,6 +199,16 @@ func (h *ShortenerHandler) Ping(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+// SaveBatch ручка генерации короткого URL батчем.
+//
+// @Summary Генерация короткого URL батчем
+// @Accept  json
+// @Produce json
+// @Param original_urls body model.LoadBatchRequest true "Оригинальные URL"
+// @Success 201 {object} model.LoadBatchResponse
+// @Failure 400 {string} string "Внутренняя ошибка"
+// @Failure 500 {string} string "Internal Server Error"
+// @Router /api/shorten/batch [post]
 func (h *ShortenerHandler) SaveBatch(w http.ResponseWriter, r *http.Request) {
 	req := model.LoadBatchRequest{}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -193,6 +241,16 @@ func (h *ShortenerHandler) SaveBatch(w http.ResponseWriter, r *http.Request) {
 	w.Write(respData)
 }
 
+// UserURLs ручка получения активных URL текущего пользователя.
+//
+// @Summary Получение загруженных пользователем URL
+// @Security     CookieAuth
+// @Produce json
+// @Success 200 {object} model.UserURLsResponse
+// @Success 204 {string} string "No Content"
+// @Failure 400 {string} string "Внутренняя ошибка"
+// @Failure 500 {string} string "Internal Server Error"
+// @Router /api/user/urls [get]
 func (h *ShortenerHandler) UserURLs(w http.ResponseWriter, r *http.Request) {
 	userID, err := utils.GetUserID(r.Context())
 	if err != nil {
@@ -222,6 +280,18 @@ func (h *ShortenerHandler) UserURLs(w http.ResponseWriter, r *http.Request) {
 	w.Write(respData)
 }
 
+// DeleteURLs архивация URL текущего пользователя.
+// Обработка запроса происходит асинхронно через очередь, пользователю сразу возвращается 202 статус.
+//
+// @Summary Удаление коротких URL пользователя
+// @Security     CookieAuth
+// @Accept  json
+// @Produce text/plain
+// @Param urls_to_delete body model.DeleteURLs true "Короткие URL для удаления"
+// @Success 202 {string} model.UserURLsResponse
+// @Success 204 {string} string "Accepted"
+// @Failure 400 {string} string "Внутренняя ошибка"
+// @Router /api/user/urls [delete]
 func (h *ShortenerHandler) DeleteURLs(w http.ResponseWriter, r *http.Request) {
 	userID, err := utils.GetUserID(r.Context())
 	if err != nil {

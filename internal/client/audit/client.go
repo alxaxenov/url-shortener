@@ -1,3 +1,4 @@
+// Package audit содержит клиент к сервису аудита.
 package audit
 
 import (
@@ -7,11 +8,13 @@ import (
 	"github.com/go-resty/resty/v2"
 )
 
+// Client структура клиента сервиса аудита.
 type Client struct {
 	URL    string
 	client *resty.Client
 }
 
+// NewRemoteAuditClient конструктор Client.
 func NewRemoteAuditClient(URL string) *Client {
 	return &Client{
 		URL:    URL,
@@ -19,6 +22,7 @@ func NewRemoteAuditClient(URL string) *Client {
 	}
 }
 
+// Notify отправка запроса уведомление сервису аудита.
 func (rc *Client) Notify(payload []byte) error {
 	resp, err := rc.client.R().SetBody(payload).Post(rc.URL)
 	if err != nil {

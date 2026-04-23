@@ -2,14 +2,17 @@ package audit
 
 import "time"
 
+// observer интерфейс обработчика.
 type observer interface {
 	notify(message Message)
 }
 
+// Publisher структура паблишера для реализации паттерна наблюдатель.
 type Publisher struct {
 	observers []observer
 }
 
+// NewPublisher конструктор Publisher.
 func NewPublisher(filePath, URLPath string) *Publisher {
 	p := &Publisher{}
 	if filePath != "" {
@@ -21,10 +24,12 @@ func NewPublisher(filePath, URLPath string) *Publisher {
 	return p
 }
 
+// registerObserver регистрация нового обработчика.
 func (p *Publisher) registerObserver(obs observer) {
 	p.observers = append(p.observers, obs)
 }
 
+// Publish отправка уведомлений зарегистрированным обработчикам.
 func (p *Publisher) Publish(action ActionType, userID int, URL string) {
 	msg := Message{
 		Ts:     time.Now().Unix(),

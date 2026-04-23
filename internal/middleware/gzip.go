@@ -75,6 +75,8 @@ func (c *compressReader) Close() error {
 	return c.zr.Close()
 }
 
+// GzipMiddleware middleware для распаковки запроса и сжатия ответа, поддерживает формат gzip.
+// Сжатие ответа происходит при статус коде < 300.
 func GzipMiddleware(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ow := w

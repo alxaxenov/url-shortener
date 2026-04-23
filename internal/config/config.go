@@ -8,8 +8,10 @@ import (
 	"github.com/caarlos0/env/v11"
 )
 
+// basePathDefault дефолтный собственный путь сервиса.
 var basePathDefault = "http://localhost:8080"
 
+// Config структура конфига сервиса.
 type Config struct {
 	Addr             string `env:"SERVER_ADDRESS"`
 	BasePath         string `env:"BASE_URL"`
@@ -21,6 +23,7 @@ type Config struct {
 	RunPPROF         bool   `env:"RUN_PPROF" envDefault:"false"`
 }
 
+// checkBasePath проверка наличия и валидности поля BasePath в Config.
 func (c Config) checkBasePath() error {
 	if c.BasePath == basePathDefault {
 		return nil
@@ -35,6 +38,8 @@ func (c Config) checkBasePath() error {
 	return nil
 }
 
+// ParseConfig инициализация Config и парсинг флагов и переменных окружения.
+// Переменные окружения имеют приоритет над флагами
 func ParseConfig() (*Config, error) {
 	cfg := Config{}
 	flag.StringVar(&cfg.Addr, "a", ":8080", "server listen address")

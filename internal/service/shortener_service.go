@@ -12,6 +12,8 @@ import (
 	repoModel "github.com/alxaxenov/url-shortener/tree/v2/internal/repository/model"
 )
 
+// IShortenerRepo интерфейс логики работы с базой данных.
+//
 //go:generate mockery --name IShortenerRepo --with-expecter=true --filename mock_shortener_repo.go
 type IShortenerRepo interface {
 	SetValue(context.Context, string, string, int) (string, error)
@@ -22,6 +24,7 @@ type IShortenerRepo interface {
 	DeleteURLs(context.Context, *model.DeleteRequest) (int, error)
 }
 
+// ShortenerService структура слоя сервиса.
 type ShortenerService struct {
 	repo          IShortenerRepo
 	basePath      string
@@ -29,6 +32,7 @@ type ShortenerService struct {
 	DeleteMsgChan chan model.DeleteRequest
 }
 
+// NewShortenerService конструктор ShortenerService.
 func NewShortenerService(repo IShortenerRepo, basePath string, deleteWorkers int) *ShortenerService {
 	instance := &ShortenerService{
 		repo:          repo,
@@ -42,6 +46,7 @@ func NewShortenerService(repo IShortenerRepo, basePath string, deleteWorkers int
 	return instance
 }
 
+// AddURL сохранение нового URL.
 func (s *ShortenerService) AddURL(ctx context.Context, u string, userID int) (string, error) {
 	if _, err := url.ParseRequestURI(u); err != nil {
 		return "", NewBadURL(u, err)
@@ -71,6 +76,7 @@ func (s *ShortenerService) AddURL(ctx context.Context, u string, userID int) (st
 	return joined, resultErr
 }
 
+// GetURL получение оригинального URL.
 func (s *ShortenerService) GetURL(ctx context.Context, short string) (string, error) {
 	v, active, err := s.repo.GetValue(ctx, short)
 	if err != nil {
@@ -82,6 +88,7 @@ func (s *ShortenerService) GetURL(ctx context.Context, short string) (string, er
 	return v, nil
 }
 
+// SaveBatch сохранение нескольких новых URL батчем.
 func (s *ShortenerService) SaveBatch(ctx context.Context, batches model.LoadBatchRequest, userID int) ([]model.BatchResponse, error) {
 	resultBatches := make([]model.BatchResponse, 0, len(batches))
 	UploadBatches := make([]repoModel.UploadBatch, 0, len(batches))
@@ -106,6 +113,7 @@ func (s *ShortenerService) SaveBatch(ctx context.Context, batches model.LoadBatc
 	return resultBatches, nil
 }
 
+// UserURLs получение всех сохраненных URL пользователя. Возвращаются только активные записи.
 func (s *ShortenerService) UserURLs(ctx context.Context, userID int) ([]model.UserURLs, error) {
 	data, err := s.repo.UserURLs(ctx, userID)
 	if err != nil {
@@ -120,14 +128,17 @@ func (s *ShortenerService) UserURLs(ctx context.Context, userID int) ([]model.Us
 	return data, nil
 }
 
+// CLoseDeleteChan метод для закрытия очереди на архивацию URL.
 func (s *ShortenerService) CLoseDeleteChan() {
 	close(s.DeleteMsgChan)
 }
 
+// AppendDelete добавление запроса в очередь на архивацию.
 func (s *ShortenerService) AppendDelete(userID int, URLs model.DeleteURLs) {
 	s.DeleteMsgChan <- model.DeleteRequest{UserID: userID, URLs: URLs}
 }
 
+// getShort генерация случайного хэша для короткого URL.
 func (s *ShortenerService) getShort() (string, error) {
 	b := make([]byte, 6)
 	_, err := rand.Read(b)
@@ -143,6 +154,7 @@ func (s *ShortenerService) getShort() (string, error) {
 	return string(res), nil
 }
 
+// deleteWorker логика воркера, обрабатывающего запросы на архивацию.
 func (s *ShortenerService) deleteWorker() {
 	for msg := range s.DeleteMsgChan {
 		if len(msg.URLs) == 0 {

@@ -1,3 +1,4 @@
+// Package db содержит реализацию репозитория для взаимодействия с бд Postgresql
 package db
 
 import (
@@ -10,18 +11,20 @@ import (
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/logger"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/model"
 	repoModel "github.com/alxaxenov/url-shortener/tree/v2/internal/repository/model"
-	"github.com/alxaxenov/url-shortener/tree/v2/internal/service"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/utils"
 )
 
+// DBRepo структура репозитория.
 type DBRepo struct {
 	Connector db_pack.IConnector
 }
 
-func NewDBRepo(c db_pack.IConnector) service.IShortenerRepo {
+// NewDBRepo конструктор DBRepo.
+func NewDBRepo(c db_pack.IConnector) *DBRepo {
 	return &DBRepo{c}
 }
 
+// SetValue сохранение нового URL. Если такой оригинальный URL уже есть в базе, возвращается существующий хэш.
 func (d *DBRepo) SetValue(ctx context.Context, short string, origin string, userID int) (string, error) {
 	db := d.Connector.GetDB()
 	datetime := time.Now()
@@ -37,6 +40,7 @@ func (d *DBRepo) SetValue(ctx context.Context, short string, origin string, user
 	return inserted, nil
 }
 
+// GetValue получение оригинального URL по хэшу короткого.
 func (d *DBRepo) GetValue(ctx context.Context, short string) (string, bool, error) {
 	db := d.Connector.GetDB()
 	row := db.QueryRowContext(ctx, "SELECT original_url, active FROM urls WHERE short_url=$1", short)
@@ -48,6 +52,7 @@ func (d *DBRepo) GetValue(ctx context.Context, short string) (string, bool, erro
 	return originalURL, active, nil
 }
 
+// SaveBatch сохранение батча новых URL.
 func (d *DBRepo) SaveBatch(ctx context.Context, batches []repoModel.UploadBatch, userID int) error {
 	db := d.Connector.GetDB()
 	createdAt := time.Now()
@@ -68,6 +73,7 @@ func (d *DBRepo) SaveBatch(ctx context.Context, batches []repoModel.UploadBatch,
 	return nil
 }
 
+// CreateUser создание нового пользователя в таблице users.
 func (d *DBRepo) CreateUser(ctx context.Context) (int, error) {
 	db := d.Connector.GetDB()
 	datetime := time.Now()
@@ -79,6 +85,7 @@ func (d *DBRepo) CreateUser(ctx context.Context) (int, error) {
 	return addedID, nil
 }
 
+// UserURLs получение всех активных URL пользователя.
 func (d *DBRepo) UserURLs(ctx context.Context, id int) ([]model.UserURLs, error) {
 	db := d.Connector.GetDB()
 
@@ -113,6 +120,7 @@ func (d *DBRepo) UserURLs(ctx context.Context, id int) ([]model.UserURLs, error)
 	return URLs, nil
 }
 
+// DeleteURLs архивация записей. Архивируются только записи, которые были добавлены текущим пользователем.
 func (d *DBRepo) DeleteURLs(ctx context.Context, deleteReq *model.DeleteRequest) (int, error) {
 	db := d.Connector.GetDB()
 	query := "UPDATE urls SET active = false WHERE user_id = $1 AND short_url = ANY($2) AND active = true"
