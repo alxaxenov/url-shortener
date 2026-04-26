@@ -11,17 +11,11 @@ import (
 )
 
 func BenchmarkGetShort(b *testing.B) {
-	repoMock := mocks.NewIShortenerRepo(b)
-	service := &ShortenerService{
-		repo:          repoMock,
-		basePath:      "",
-		base62Chars:   "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz",
-		DeleteMsgChan: nil,
-	}
+	hasher := NewHasher()
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		service.getShort()
+		hasher.GetShort()
 	}
 }
 
@@ -31,7 +25,7 @@ func BenchmarkSaveBatch(b *testing.B) {
 	service := &ShortenerService{
 		repo:          repoMock,
 		basePath:      "http://base_path.com",
-		base62Chars:   "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz",
+		hasher:        NewHasher(),
 		DeleteMsgChan: nil,
 	}
 	data := make([]model.BatchRequest, 10)
@@ -53,7 +47,7 @@ func BenchmarkAddURL(b *testing.B) {
 	service := &ShortenerService{
 		repo:          repoMock,
 		basePath:      "http://base_path.com",
-		base62Chars:   "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz",
+		hasher:        NewHasher(),
 		DeleteMsgChan: nil,
 	}
 	b.ResetTimer()
@@ -79,7 +73,7 @@ func BenchmarkUserURLs(b *testing.B) {
 	service := &ShortenerService{
 		repo:          repoMock,
 		basePath:      "http://base_path.com",
-		base62Chars:   "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz",
+		hasher:        NewHasher(),
 		DeleteMsgChan: nil,
 	}
 	b.ResetTimer()
@@ -95,7 +89,7 @@ func BenchmarkGetURL(b *testing.B) {
 	service := &ShortenerService{
 		repo:          repoMock,
 		basePath:      "http://base_path.com",
-		base62Chars:   "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz",
+		hasher:        NewHasher(),
 		DeleteMsgChan: nil,
 	}
 	b.ResetTimer()

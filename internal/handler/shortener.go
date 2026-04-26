@@ -28,6 +28,8 @@ type IShortenerService interface {
 }
 
 // ISemaphore интерфейс реализации семафора.
+//
+//go:generate mockery --name ISemaphore --with-expecter=true --filename mock_semathor.go
 type ISemaphore interface {
 	Acquire()
 	Release()
@@ -49,7 +51,7 @@ type ShortenerHandler struct {
 }
 
 // NewShortenerHandler конструктор ShortenerHandler.
-func NewShortenerHandler(s IShortenerService, d db.DBTX, audit AuditPublisher) IHandler {
+func NewShortenerHandler(s IShortenerService, d db.DBTX, audit AuditPublisher) *ShortenerHandler {
 	semaphore := utils.NewSemaphore(5)
 	return &ShortenerHandler{Service: s, DB: d, deleteSemaphore: semaphore, audit: audit}
 }
@@ -79,6 +81,7 @@ func (h *ShortenerHandler) AddValue(w http.ResponseWriter, r *http.Request) {
 	userID, err := utils.GetUserID(r.Context())
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	}
 	responseStatus := http.StatusCreated
 	short, err := h.Service.AddURL(r.Context(), string(b), userID)
@@ -155,6 +158,7 @@ func (h *ShortenerHandler) AddValueJSON(w http.ResponseWriter, r *http.Request) 
 	userID, err := utils.GetUserID(r.Context())
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	}
 	responseStatus := http.StatusCreated
 	short, err := h.Service.AddURL(r.Context(), req.URL, userID)
@@ -218,6 +222,7 @@ func (h *ShortenerHandler) SaveBatch(w http.ResponseWriter, r *http.Request) {
 	userID, err := utils.GetUserID(r.Context())
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	}
 	data, err := h.Service.SaveBatch(r.Context(), req, userID)
 	if err != nil {
@@ -255,6 +260,7 @@ func (h *ShortenerHandler) UserURLs(w http.ResponseWriter, r *http.Request) {
 	userID, err := utils.GetUserID(r.Context())
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	}
 	data, err := h.Service.UserURLs(r.Context(), userID)
 	if err != nil {
@@ -266,7 +272,7 @@ func (h *ShortenerHandler) UserURLs(w http.ResponseWriter, r *http.Request) {
 	var respData []byte
 	if len(data) == 0 {
 		status = http.StatusNoContent
-		respData = []byte(http.StatusText(http.StatusNoContent))
+		respData = []byte(http.StatusText(http.StatusNoContent) + "\n")
 	} else {
 		respData, err = json.Marshal(model.UserURLsResponse(data))
 		if err != nil {
@@ -296,6 +302,7 @@ func (h *ShortenerHandler) DeleteURLs(w http.ResponseWriter, r *http.Request) {
 	userID, err := utils.GetUserID(r.Context())
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	}
 	req := model.DeleteURLs{}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {

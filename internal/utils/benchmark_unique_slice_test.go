@@ -11,12 +11,14 @@ func init() {
 
 func BenchmarkUniqueSlice(b *testing.B) {
 	elems := []string{"apple", "banana", "cherry", "date", "elderberry", "fig", "grape", "honeydew", "kiwi", "lemon"}
-	data := make([]string, len(elems)*10)
+	data := make([]string, 0, len(elems)*10)
 	for i := range elems {
 		newData := make([]string, 10)
 		for j := 0; j < 10; j++ {
 			newData[j] = elems[i]
 		}
+		data = append(data, newData...)
+
 	}
 	rand.Shuffle(len(data), func(i, j int) {
 		data[i], data[j] = data[j], data[i]
@@ -24,6 +26,8 @@ func BenchmarkUniqueSlice(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		UniqueSlice(&data)
+		tmp := make([]string, len(data))
+		copy(tmp, data)
+		UniqueSlice(&tmp)
 	}
 }

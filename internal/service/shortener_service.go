@@ -2,8 +2,6 @@ package service
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/binary"
 	"fmt"
 	"net/url"
 
@@ -24,20 +22,25 @@ type IShortenerRepo interface {
 	DeleteURLs(context.Context, *model.DeleteRequest) (int, error)
 }
 
+//go:generate mockery --name Ihasher --with-expecter=true --filename mock_hasher.go
+type Ihasher interface {
+	GetShort() (string, error)
+}
+
 // ShortenerService структура слоя сервиса.
 type ShortenerService struct {
 	repo          IShortenerRepo
 	basePath      string
-	base62Chars   string
+	hasher        Ihasher
 	DeleteMsgChan chan model.DeleteRequest
 }
 
 // NewShortenerService конструктор ShortenerService.
-func NewShortenerService(repo IShortenerRepo, basePath string, deleteWorkers int) *ShortenerService {
+func NewShortenerService(repo IShortenerRepo, basePath string, deleteWorkers int, hasher Ihasher) *ShortenerService {
 	instance := &ShortenerService{
 		repo:          repo,
 		basePath:      basePath,
-		base62Chars:   "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz",
+		hasher:        hasher,
 		DeleteMsgChan: make(chan model.DeleteRequest, 1024),
 	}
 	for range deleteWorkers {
@@ -52,7 +55,7 @@ func (s *ShortenerService) AddURL(ctx context.Context, u string, userID int) (st
 		return "", NewBadURL(u, err)
 	}
 
-	hashURL, err := s.getShort()
+	hashURL, err := s.hasher.GetShort()
 	if err != nil {
 		return "", err
 	}
@@ -96,7 +99,7 @@ func (s *ShortenerService) SaveBatch(ctx context.Context, batches model.LoadBatc
 		if _, err := url.ParseRequestURI(batch.OriginalURL); err != nil {
 			return nil, NewBadURL(batch.OriginalURL, err)
 		}
-		hashURL, err := s.getShort()
+		hashURL, err := s.hasher.GetShort()
 		if err != nil {
 			return nil, err
 		}
@@ -136,22 +139,6 @@ func (s *ShortenerService) CLoseDeleteChan() {
 // AppendDelete добавление запроса в очередь на архивацию.
 func (s *ShortenerService) AppendDelete(userID int, URLs model.DeleteURLs) {
 	s.DeleteMsgChan <- model.DeleteRequest{UserID: userID, URLs: URLs}
-}
-
-// getShort генерация случайного хэша для короткого URL.
-func (s *ShortenerService) getShort() (string, error) {
-	b := make([]byte, 6)
-	_, err := rand.Read(b)
-	if err != nil {
-		return "", fmt.Errorf("getShort rand error: %w", err)
-	}
-	num := binary.BigEndian.Uint64(append([]byte{0, 0}, b...))
-	var res = make([]byte, 0, 8)
-	for num > 0 {
-		res = append(res, s.base62Chars[num%62])
-		num /= 62
-	}
-	return string(res), nil
 }
 
 // deleteWorker логика воркера, обрабатывающего запросы на архивацию.

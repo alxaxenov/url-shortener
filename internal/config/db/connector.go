@@ -7,6 +7,8 @@ import (
 )
 
 // DBTX интерфейс запросов к бд.
+//
+//go:generate mockery --name DBTX --with-expecter=true --filename mock_dbtx.go
 type DBTX interface {
 	ExecContext(context.Context, string, ...interface{}) (sql.Result, error)
 	PrepareContext(context.Context, string) (*sql.Stmt, error)
