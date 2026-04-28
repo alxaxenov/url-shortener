@@ -162,9 +162,11 @@ func (r *inMemoryRepo) DeleteURLs(ctx context.Context, deleteReq *model.DeleteRe
 			continue
 		}
 		r.urls[shortURL] = Value{original: cur.original, createdAt: cur.createdAt, active: false}
-		err := r.persist.addData(shortURL, cur.original, cur.createdAt, deleteReq.UserID, false)
-		if err != nil {
-			return affected, err
+		if r.persist != nil {
+			err := r.persist.addData(shortURL, cur.original, cur.createdAt, deleteReq.UserID, false)
+			if err != nil {
+				return affected, err
+			}
 		}
 		affected++
 	}
