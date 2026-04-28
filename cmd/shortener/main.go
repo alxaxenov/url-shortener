@@ -75,7 +75,11 @@ func run() error {
 
 	srv := service.NewShortenerService(repo, cfg.BasePath, 3, service.NewHasher())
 	defer srv.CLoseDeleteChan()
-	auditPudlisher := audit.NewPublisher(cfg.AuditFile, cfg.AuditURL)
+	auditPudlisher, err := audit.NewPublisher(cfg.AuditFile, cfg.AuditURL)
+	if err != nil {
+		return err
+	}
+	defer auditPudlisher.Close()
 	h := handler.NewShortenerHandler(srv, dbConn, auditPudlisher)
 	userMiddleware := middleware.NewUserMiddleware(cfg.AuthCookieSecret, repo)
 

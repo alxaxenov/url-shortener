@@ -7,7 +7,7 @@ type (
 	Message struct {
 		Ts     int64      `json:"ts"`
 		Action ActionType `json:"action"`
-		UserId int        `json:"user_id,omitempty"`
+		UserID int        `json:"user_id,omitempty"`
 		URL    string     `json:"url"`
 	}
 )

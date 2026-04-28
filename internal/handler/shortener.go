@@ -13,6 +13,7 @@ import (
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/service"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/utils"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/worker/audit"
+	"github.com/go-chi/chi/v5"
 )
 
 // IShortenerService интерфейс слоя сервиса.
@@ -117,7 +118,7 @@ func (h *ShortenerHandler) AddValue(w http.ResponseWriter, r *http.Request) {
 // @Failure 500 {string} string "Internal Server Error"
 // @Router /{short_url} [get]
 func (h *ShortenerHandler) GetValue(w http.ResponseWriter, r *http.Request) {
-	u, err := h.Service.GetURL(r.Context(), r.PathValue("id"))
+	u, err := h.Service.GetURL(r.Context(), chi.URLParam(r, "id"))
 	if err != nil {
 		var status int
 		if errors.Is(err, service.ErrURLDeleted) {

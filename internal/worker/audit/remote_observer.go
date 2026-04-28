@@ -33,3 +33,7 @@ func (f *remoteObserver) notify(message Message) {
 		logger.Logger.Errorf("remoteObserver failed to notify remote: %s", err)
 	}
 }
+
+func (f *remoteObserver) close() error {
+	return nil
+}
