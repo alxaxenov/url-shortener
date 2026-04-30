@@ -1,3 +1,4 @@
+// Package pg содержит коннектор к бд Postgersql.
 package pg
 
 import (
@@ -13,10 +14,17 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
+// ConnectorPG структура коннектора к бд Postgresql.
 type ConnectorPG struct {
 	db.Connector
 }
 
+// NewPGConnector конструктор ConnectorPG.
+func NewPGConnector(dsn string) *ConnectorPG {
+	return &ConnectorPG{Connector: db.Connector{DSN: dsn}}
+}
+
+// Open открытие коннекта к бд, проверка доступности, применение миграций.
 func (c *ConnectorPG) Open(ctx context.Context) (*sql.DB, error) {
 	dataBase, err := sql.Open("pgx", c.DSN)
 	if err != nil {
@@ -35,10 +43,12 @@ func (c *ConnectorPG) Open(ctx context.Context) (*sql.DB, error) {
 	return dataBase, nil
 }
 
+// Close закрытие коннекта к бд.
 func (c *ConnectorPG) Close() error {
 	return c.DB.Close()
 }
 
+// Migrate логика применения миграций.
 func (c *ConnectorPG) Migrate(dataBase *sql.DB) error {
 	goose.SetBaseFS(migrations.EmbedMigrations)
 	if err := goose.SetDialect("postgres"); err != nil {
@@ -48,8 +58,4 @@ func (c *ConnectorPG) Migrate(dataBase *sql.DB) error {
 		return fmt.Errorf("migration Up error: %w", err)
 	}
 	return nil
-}
-
-func NewPGConnector(dsn string) *ConnectorPG {
-	return &ConnectorPG{Connector: db.Connector{DSN: dsn}}
 }

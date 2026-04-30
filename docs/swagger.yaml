@@ -1,0 +1,217 @@
+definitions:
+  model.AddURLRequest:
+    properties:
+      url:
+        type: string
+    type: object
+  model.AddURLResponse:
+    properties:
+      result:
+        type: string
+    type: object
+  model.BatchRequest:
+    properties:
+      correlation_id:
+        type: string
+      original_url:
+        type: string
+    type: object
+  model.BatchResponse:
+    properties:
+      correlation_id:
+        type: string
+      short_url:
+        type: string
+    type: object
+  model.UserURLs:
+    properties:
+      original_url:
+        type: string
+      short_url:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: Сервис для сокращение url.
+  title: UrlShortener API
+  version: "1.0"
+paths:
+  /:
+    post:
+      consumes:
+      - text/plain
+      parameters:
+      - description: Оригинальный URL
+        in: body
+        name: original_url
+        required: true
+        schema:
+          type: string
+      produces:
+      - text/plain
+      responses:
+        "201":
+          description: Created
+          schema:
+            type: string
+        "400":
+          description: Внутренняя ошибка
+          schema:
+            type: string
+        "409":
+          description: Conflict
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: Генерация короткого URL
+  /{short_url}:
+    get:
+      parameters:
+      - description: короткий URL
+        in: path
+        name: short_url
+        required: true
+        type: string
+      responses:
+        "307":
+          description: Temporary Redirect
+        "410":
+          description: Gone
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: Получение оригинального URL
+  /api/shorten:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Оригинальный URL
+        in: body
+        name: original_url
+        required: true
+        schema:
+          $ref: '#/definitions/model.AddURLRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/model.AddURLResponse'
+        "400":
+          description: Внутренняя ошибка
+          schema:
+            type: string
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/model.AddURLResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: Генерация короткого URL
+  /api/shorten/batch:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Оригинальные URL
+        in: body
+        name: original_urls
+        required: true
+        schema:
+          items:
+            $ref: '#/definitions/model.BatchRequest'
+          type: array
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            items:
+              $ref: '#/definitions/model.BatchResponse'
+            type: array
+        "400":
+          description: Внутренняя ошибка
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: Генерация короткого URL батчем
+  /api/user/urls:
+    delete:
+      consumes:
+      - application/json
+      parameters:
+      - description: Короткие URL для удаления
+        in: body
+        name: urls_to_delete
+        required: true
+        schema:
+          items:
+            type: string
+          type: array
+      produces:
+      - text/plain
+      responses:
+        "202":
+          description: Accepted
+          schema:
+            type: string
+        "204":
+          description: Accepted
+          schema:
+            type: string
+        "400":
+          description: Внутренняя ошибка
+          schema:
+            type: string
+      security:
+      - CookieAuth: []
+      summary: Удаление коротких URL пользователя
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/model.UserURLs'
+            type: array
+        "204":
+          description: No Content
+          schema:
+            type: string
+        "400":
+          description: Внутренняя ошибка
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      security:
+      - CookieAuth: []
+      summary: Получение загруженных пользователем URL
+schemes:
+- http
+securityDefinitions:
+  CookieAuth:
+    description: Авторизационный ключ, передаваемый в Cookie.
+    in: header
+    name: AUTH_SHORTEN_KEY
+    type: apiKey
+swagger: "2.0"

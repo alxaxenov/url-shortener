@@ -1,3 +1,4 @@
+// Package db содержит сущности для описания взаимодействия с абстрактной базой данных.
 package db
 
 import (
@@ -5,6 +6,9 @@ import (
 	"database/sql"
 )
 
+// DBTX интерфейс запросов к бд.
+//
+//go:generate mockery --name DBTX --with-expecter=true --filename mock_dbtx.go
 type DBTX interface {
 	ExecContext(context.Context, string, ...interface{}) (sql.Result, error)
 	PrepareContext(context.Context, string) (*sql.Stmt, error)
@@ -15,18 +19,21 @@ type DBTX interface {
 	BeginTx(context.Context, *sql.TxOptions) (*sql.Tx, error)
 }
 
-type ConnectorInt interface {
+// IConnector интерфейс коннектора, содержит общие методы для взаимодействия с бд, кроме методов запросов.
+type IConnector interface {
 	Open(ctx context.Context) (*sql.DB, error)
 	Close() error
 	Migrate(*sql.DB) error
 	GetDB() DBTX
 }
 
+// Connector структура коннектора.
 type Connector struct {
 	DSN string
 	DB  DBTX
 }
 
+// GetDB получения сущности, содержащей методы запросов к бд.
 func (c *Connector) GetDB() DBTX {
 	return c.DB
 }

@@ -5,6 +5,7 @@ import (
 	"time"
 )
 
+// timeoutHandler обертка для подключения таймаута к хендлеру.
 func timeoutHandler(handler http.HandlerFunc, timeout time.Duration, msg string) http.HandlerFunc {
 	if msg == "" {
 		msg = "Service unavailable: request timeout"

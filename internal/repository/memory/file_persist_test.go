@@ -13,12 +13,12 @@ import (
 func Test_filePersist_addData(t *testing.T) {
 	tests := []struct {
 		name    string
-		mockSet func(writerFactory *MockFactoryWriterInt, writer *MockWriterInt)
+		mockSet func(writerFactory *MockIFactoryWriter, writer *MockWriter)
 		wantErr bool
 	}{
 		{
 			name: "new writer error",
-			mockSet: func(writerFactory *MockFactoryWriterInt, writer *MockWriterInt) {
+			mockSet: func(writerFactory *MockIFactoryWriter, writer *MockWriter) {
 				writerFactory.EXPECT().
 					NewWriter(mock.AnythingOfType("string")).
 					Return(nil, errors.New("factory error")).
@@ -28,7 +28,7 @@ func Test_filePersist_addData(t *testing.T) {
 		},
 		{
 			name: "write error",
-			mockSet: func(writerFactory *MockFactoryWriterInt, writer *MockWriterInt) {
+			mockSet: func(writerFactory *MockIFactoryWriter, writer *MockWriter) {
 				writerFactory.EXPECT().
 					NewWriter(mock.AnythingOfType("string")).
 					Return(writer, nil).
@@ -44,7 +44,7 @@ func Test_filePersist_addData(t *testing.T) {
 		},
 		{
 			name: "write success",
-			mockSet: func(writerFactory *MockFactoryWriterInt, writer *MockWriterInt) {
+			mockSet: func(writerFactory *MockIFactoryWriter, writer *MockWriter) {
 				writerFactory.EXPECT().
 					NewWriter(mock.AnythingOfType("string")).
 					Return(writer, nil).
@@ -61,8 +61,8 @@ func Test_filePersist_addData(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			writerFactory := NewMockFactoryWriterInt(t)
-			writer := NewMockWriterInt(t)
+			writerFactory := NewMockIFactoryWriter(t)
+			writer := NewMockWriter(t)
 			tt.mockSet(writerFactory, writer)
 			f := &filePersist{
 				filePath:      "",
@@ -84,13 +84,13 @@ func Test_filePersist_getData(t *testing.T) {
 	tests := []struct {
 		name    string
 		want    []urlData
-		mockSet func(writerFactory *MockFactoryReaderInt, writer *MockReaderInt)
+		mockSet func(writerFactory *MockIFactoryReader, writer *MockReader)
 		wantErr bool
 	}{
 		{
 			name: "new reader error",
 			want: nil,
-			mockSet: func(writerFactory *MockFactoryReaderInt, writer *MockReaderInt) {
+			mockSet: func(writerFactory *MockIFactoryReader, writer *MockReader) {
 				writerFactory.EXPECT().
 					NewReader(mock.AnythingOfType("string")).
 					Return(nil, errors.New("factory error")).
@@ -101,7 +101,7 @@ func Test_filePersist_getData(t *testing.T) {
 		{
 			name: "consumer nil",
 			want: nil,
-			mockSet: func(writerFactory *MockFactoryReaderInt, writer *MockReaderInt) {
+			mockSet: func(writerFactory *MockIFactoryReader, writer *MockReader) {
 				writerFactory.EXPECT().
 					NewReader(mock.AnythingOfType("string")).
 					Return(nil, nil).
@@ -112,7 +112,7 @@ func Test_filePersist_getData(t *testing.T) {
 		{
 			name: "read err",
 			want: nil,
-			mockSet: func(writerFactory *MockFactoryReaderInt, writer *MockReaderInt) {
+			mockSet: func(writerFactory *MockIFactoryReader, writer *MockReader) {
 				writerFactory.EXPECT().
 					NewReader(mock.AnythingOfType("string")).
 					Return(writer, nil).
@@ -129,7 +129,7 @@ func Test_filePersist_getData(t *testing.T) {
 		{
 			name: "read empty",
 			want: nil,
-			mockSet: func(writerFactory *MockFactoryReaderInt, writer *MockReaderInt) {
+			mockSet: func(writerFactory *MockIFactoryReader, writer *MockReader) {
 				writerFactory.EXPECT().
 					NewReader(mock.AnythingOfType("string")).
 					Return(writer, nil).
@@ -149,7 +149,7 @@ func Test_filePersist_getData(t *testing.T) {
 		{
 			name: "read new line",
 			want: nil,
-			mockSet: func(writerFactory *MockFactoryReaderInt, writer *MockReaderInt) {
+			mockSet: func(writerFactory *MockIFactoryReader, writer *MockReader) {
 				writerFactory.EXPECT().
 					NewReader(mock.AnythingOfType("string")).
 					Return(writer, nil).
@@ -169,7 +169,7 @@ func Test_filePersist_getData(t *testing.T) {
 		{
 			name: "read not json line",
 			want: nil,
-			mockSet: func(writerFactory *MockFactoryReaderInt, writer *MockReaderInt) {
+			mockSet: func(writerFactory *MockIFactoryReader, writer *MockReader) {
 				writerFactory.EXPECT().
 					NewReader(mock.AnythingOfType("string")).
 					Return(writer, nil).
@@ -189,7 +189,7 @@ func Test_filePersist_getData(t *testing.T) {
 		{
 			name: "incorrect json",
 			want: nil,
-			mockSet: func(writerFactory *MockFactoryReaderInt, writer *MockReaderInt) {
+			mockSet: func(writerFactory *MockIFactoryReader, writer *MockReader) {
 				writerFactory.EXPECT().
 					NewReader(mock.AnythingOfType("string")).
 					Return(writer, nil).
@@ -213,7 +213,7 @@ func Test_filePersist_getData(t *testing.T) {
 				{"9W0wsMxE", "original URL", "2026-02-14T00:39:10+03:00", 1, true},
 				{"Pc7V6XI3", "original URL", "2026-02-14T00:39:10+03:00", 2, true},
 			},
-			mockSet: func(writerFactory *MockFactoryReaderInt, writer *MockReaderInt) {
+			mockSet: func(writerFactory *MockIFactoryReader, writer *MockReader) {
 				writerFactory.EXPECT().
 					NewReader(mock.AnythingOfType("string")).
 					Return(writer, nil).
@@ -233,8 +233,8 @@ func Test_filePersist_getData(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			readerFactory := NewMockFactoryReaderInt(t)
-			reader := NewMockReaderInt(t)
+			readerFactory := NewMockIFactoryReader(t)
+			reader := NewMockReader(t)
 			tt.mockSet(readerFactory, reader)
 
 			f := &filePersist{

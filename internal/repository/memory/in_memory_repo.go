@@ -9,43 +9,61 @@ import (
 
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/logger"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/model"
-	"github.com/alxaxenov/url-shortener/tree/v2/internal/service"
+	repoModel "github.com/alxaxenov/url-shortener/tree/v2/internal/repository/model"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/utils"
 )
 
+// timeFormat формат хранения временных меток.
 var timeFormat = time.RFC3339
 
-type urlData struct {
-	ShortURL    string `json:"short_url"`
-	OriginalURL string `json:"original_url"`
-	CreatedAt   string `json:"created_at"`
-	UserID      int    `json:"user_id"`
-	Active      bool   `json:"active"`
-}
+type (
+	// urlData структура хранения записи в файле.
+	urlData struct {
+		ShortURL    string `json:"short_url"`
+		OriginalURL string `json:"original_url"`
+		CreatedAt   string `json:"created_at"`
+		UserID      int    `json:"user_id"`
+		Active      bool   `json:"active"`
+	}
 
+	// Value структура хранения записи в памяти.
+	Value struct {
+		original  string
+		createdAt time.Time
+		userID    int
+		active    bool
+	}
+)
+
+// isValid проверка валидности записи из файла. критерий - хэш и оригинальный URL не пустые строки.
 func (d urlData) isValid() bool {
 	return d.ShortURL != "" && d.OriginalURL != ""
 }
 
-type persistInt interface {
+// Ipersist интерфейс взаимодействия с файловой системой
+type Ipersist interface {
 	addData(string, string, time.Time, int, bool) error
 	getData() ([]urlData, error)
 }
 
-type Value struct {
-	original  string
-	createdAt time.Time
-	userID    int
-	active    bool
-}
-
+// inMemoryRepo структура репозитория в памяти.
+// Записи хранятся в мапе urls map[хэш]Value.
+// Так же ведется маппинг добавления записей по пользователю usersURLs map[user id][]хэш.
 type inMemoryRepo struct {
 	urls      map[string]Value
 	usersURLs map[int][]string
 	maxUserID int
-	persist   persistInt
+	persist   Ipersist
 }
 
+// NewInMemoryRepo конструктор inMemoryRepo.
+func NewInMemoryRepo(persist Ipersist) (*inMemoryRepo, error) {
+	repo := &inMemoryRepo{make(map[string]Value), make(map[int][]string), 0, persist}
+	err := repo.loadFromPersist()
+	return repo, err
+}
+
+// SetValue сохранение нового URL. Опционально возможна запись в файл.
 func (r *inMemoryRepo) SetValue(ctx context.Context, k string, v string, userID int) (string, error) {
 	createdAt := time.Now()
 	r.urls[k] = Value{v, createdAt, userID, true}
@@ -59,6 +77,7 @@ func (r *inMemoryRepo) SetValue(ctx context.Context, k string, v string, userID 
 	return k, nil
 }
 
+// GetValue получение оригинального URL по хэшу короткого.
 func (r *inMemoryRepo) GetValue(ctx context.Context, k string) (string, bool, error) {
 	if v, ok := r.urls[k]; ok {
 		return v.original, v.active, nil
@@ -66,6 +85,7 @@ func (r *inMemoryRepo) GetValue(ctx context.Context, k string) (string, bool, er
 	return "", false, errors.New("key not found")
 }
 
+// loadFromPersist загрузка данных из файла в память.
 func (r *inMemoryRepo) loadFromPersist() error {
 	if r.persist == nil {
 		logger.Logger.Info("persist repo is nil")
@@ -94,7 +114,8 @@ func (r *inMemoryRepo) loadFromPersist() error {
 	return nil
 }
 
-func (r *inMemoryRepo) SaveBatch(ctx context.Context, batches []service.UploadBatch, userID int) error {
+// SaveBatch сохранение батча новых URL.
+func (r *inMemoryRepo) SaveBatch(ctx context.Context, batches []repoModel.UploadBatch, userID int) error {
 	for _, batch := range batches {
 		_, err := r.SetValue(ctx, batch.Short, batch.Origin, userID)
 		if err != nil {
@@ -104,11 +125,13 @@ func (r *inMemoryRepo) SaveBatch(ctx context.Context, batches []service.UploadBa
 	return nil
 }
 
+// CreateUser создание пользователя.
 func (r *inMemoryRepo) CreateUser(ctx context.Context) (int, error) {
 	r.maxUserID = r.maxUserID + 1
 	return r.maxUserID, nil
 }
 
+// UserURLs получение всех активных URL пользователя.
 func (r *inMemoryRepo) UserURLs(ctx context.Context, id int) ([]model.UserURLs, error) {
 	data := make([]model.UserURLs, 0)
 	shorts, ok := r.usersURLs[id]
@@ -129,6 +152,7 @@ func (r *inMemoryRepo) UserURLs(ctx context.Context, id int) ([]model.UserURLs, 
 	return data, nil
 }
 
+// DeleteURLs архивация записей. Архивируются только записи, которые были добавлены текущим пользователем.
 func (r *inMemoryRepo) DeleteURLs(ctx context.Context, deleteReq *model.DeleteRequest) (int, error) {
 	affected := 0
 	uniqueURLs := utils.UniqueSlice((*[]string)(&deleteReq.URLs))
@@ -138,17 +162,13 @@ func (r *inMemoryRepo) DeleteURLs(ctx context.Context, deleteReq *model.DeleteRe
 			continue
 		}
 		r.urls[shortURL] = Value{original: cur.original, createdAt: cur.createdAt, active: false}
-		err := r.persist.addData(shortURL, cur.original, cur.createdAt, deleteReq.UserID, false)
-		if err != nil {
-			return affected, err
+		if r.persist != nil {
+			err := r.persist.addData(shortURL, cur.original, cur.createdAt, deleteReq.UserID, false)
+			if err != nil {
+				return affected, err
+			}
 		}
 		affected++
 	}
 	return affected, nil
-}
-
-func NewInMemoryRepo(persist persistInt) (service.ShortenerRepo, error) {
-	repo := &inMemoryRepo{make(map[string]Value), make(map[int][]string), 0, persist}
-	err := repo.loadFromPersist()
-	return repo, err
 }

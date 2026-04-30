@@ -11,34 +11,49 @@ import (
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/logger"
 )
 
-//go:generate mockery --name FactoryWriterInt --with-expecter=true --inpackage --filename mock_factory_writer.go
-type FactoryWriterInt interface {
-	NewWriter(string) (WriterInt, error)
+// IFactoryWriter интерфейс фабрики Writer.
+//
+//go:generate mockery --name IFactoryWriter --with-expecter=true --inpackage --filename mock_factory_writer.go
+type IFactoryWriter interface {
+	NewWriter(string) (Writer, error)
 }
 
-//go:generate mockery --name WriterInt --with-expecter=true --inpackage --filename mock_writer.go
-type WriterInt interface {
+// Writer интерфейс записи в файл.
+//
+//go:generate mockery --name Writer --with-expecter=true --inpackage --filename mock_writer.go
+type Writer interface {
 	Close() error
 	Write([]byte) (int, error)
 }
 
-//go:generate mockery --name FactoryReaderInt --with-expecter=true --inpackage --filename mock_factory_reader.go
-type FactoryReaderInt interface {
-	NewReader(string) (ReaderInt, error)
+// IFactoryReader интерфейс фабрики Reader.
+//
+//go:generate mockery --name IFactoryReader --with-expecter=true --inpackage --filename mock_factory_reader.go
+type IFactoryReader interface {
+	NewReader(string) (Reader, error)
 }
 
-//go:generate mockery --name ReaderInt --with-expecter=true --inpackage --filename mock_reader.go
-type ReaderInt interface {
+// Reader интерфейс чтения из файла.
+//
+//go:generate mockery --name Reader --with-expecter=true --inpackage --filename mock_reader.go
+type Reader interface {
 	Close() error
 	io.Reader
 }
 
+// filePersist структура сущности для хранения и чтения данных в файле.
 type filePersist struct {
 	filePath      string
-	writerFactory FactoryWriterInt
-	readerFactory FactoryReaderInt
+	writerFactory IFactoryWriter
+	readerFactory IFactoryReader
 }
 
+// NewFilePersist конструктор filePersist.
+func NewFilePersist(path string) Ipersist {
+	return &filePersist{filePath: path, writerFactory: &NewWriter{}, readerFactory: &NewReader{}}
+}
+
+// addData добавление данных в файл.
 func (f *filePersist) addData(k string, v string, createdAt time.Time, userID int, active bool) error {
 	producer, err := f.writerFactory.NewWriter(f.filePath)
 	if err != nil {
@@ -58,6 +73,7 @@ func (f *filePersist) addData(k string, v string, createdAt time.Time, userID in
 	return nil
 }
 
+// getData получение всех данных из файла. Возвращаются только валидные записи.
 func (f *filePersist) getData() ([]urlData, error) {
 	consumer, err := f.readerFactory.NewReader(f.filePath)
 	if err != nil {
@@ -90,8 +106,4 @@ func (f *filePersist) getData() ([]urlData, error) {
 		return nil, fmt.Errorf("persist scanner error: %w", err)
 	}
 	return records, nil
-}
-
-func NewFilePersist(path string) persistInt {
-	return &filePersist{filePath: path, writerFactory: &NewWriter{}, readerFactory: &NewReader{}}
 }

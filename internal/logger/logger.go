@@ -1,3 +1,4 @@
+// Package logger содержит настройку и глобальную сущность логгера.
 package logger
 
 import (
@@ -8,6 +9,7 @@ import (
 
 var Logger *zap.SugaredLogger = zap.NewNop().Sugar()
 
+// Initialize инициализация логгера.
 func Initialize() error {
 	logger, err := zap.NewDevelopment()
 	if err != nil {

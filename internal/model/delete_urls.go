@@ -1,8 +1,10 @@
 package model
 
-type DeleteURLs []string
+type (
+	DeleteURLs []string
 
-type DeleteRequest struct {
-	UserID int
-	URLs   DeleteURLs
-}
+	DeleteRequest struct {
+		UserID int
+		URLs   DeleteURLs
+	}
+)

@@ -1,15 +1,17 @@
 package model
 
-type BatchRequest struct {
-	CorrelationID string `json:"correlation_id"`
-	OriginalURL   string `json:"original_url"`
-}
+type (
+	BatchRequest struct {
+		CorrelationID string `json:"correlation_id"`
+		OriginalURL   string `json:"original_url"`
+	}
 
-type LoadBatchRequest []BatchRequest
+	LoadBatchRequest []BatchRequest
 
-type BatchResponse struct {
-	CorrelationID string `json:"correlation_id"`
-	ShortURL      string `json:"short_url"`
-}
+	BatchResponse struct {
+		CorrelationID string `json:"correlation_id"`
+		ShortURL      string `json:"short_url"`
+	}
 
-type LoadBatchResponse []BatchResponse
+	LoadBatchResponse []BatchResponse
+)
