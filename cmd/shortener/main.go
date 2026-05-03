@@ -30,10 +30,19 @@ import (
 // @Name AUTH_SHORTEN_KEY
 // @description Авторизационный ключ, передаваемый в Cookie.
 
+var buildVersion string = "N/A"
+var buildDate string = "N/A"
+var buildCommit string = "N/A"
+
 func main() {
 	if err := logger.Initialize(); err != nil {
 		log.Fatal(err)
 	}
+
+	logger.Logger.Infof("Build version: %s", buildVersion)
+	logger.Logger.Infof("Build date: %s", buildDate)
+	logger.Logger.Infof("Build commit: %s", buildCommit)
+
 	if err := run(); err != nil {
 		logger.Logger.Fatal(err)
 	}
