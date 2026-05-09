@@ -3,6 +3,7 @@ package main
 import (
 	"go/ast"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"golang.org/x/tools/go/analysis"
@@ -15,7 +16,7 @@ var Analyzer = &analysis.Analyzer{
 }
 
 func run(pass *analysis.Pass) (interface{}, error) {
-	panicCall := func(x *ast.ExprStmt, funcDecl *ast.FuncDecl) {
+	panicAndFatalCall := func(x *ast.ExprStmt, funcDecl *ast.FuncDecl) {
 		if call, ok := x.X.(*ast.CallExpr); ok {
 			if ident, ok := call.Fun.(*ast.Ident); ok && ident.Name == "panic" {
 				pass.Reportf(ident.NamePos, "call panic")
@@ -31,8 +32,8 @@ func run(pass *analysis.Pass) (interface{}, error) {
 				if !okX {
 					return
 				}
-				if selX.Name == "log" && sel.Sel.Name == "Fatal" {
-					pass.Reportf(selX.Pos(), "call log.Fatal")
+				if selX.Name == "log" && slices.Contains([]string{"Fatal", "Fatalf", "Fatalln"}, sel.Sel.Name) {
+					pass.Reportf(selX.Pos(), "call log.%s", sel.Sel.Name)
 					return
 				}
 				if selX.Name == "os" && sel.Sel.Name == "Exit" {
@@ -42,9 +43,9 @@ func run(pass *analysis.Pass) (interface{}, error) {
 		}
 	}
 
-	var currentFunc *ast.FuncDecl
-
 	for _, file := range pass.Files {
+		var currentFunc *ast.FuncDecl
+
 		ast.Inspect(file, func(node ast.Node) bool {
 			filename := filepath.Base(pass.Fset.Position(file.Pos()).Filename)
 			if strings.HasPrefix(filename, "mock_") {
@@ -54,7 +55,7 @@ func run(pass *analysis.Pass) (interface{}, error) {
 			case *ast.FuncDecl:
 				currentFunc = x
 			case *ast.ExprStmt:
-				panicCall(x, currentFunc)
+				panicAndFatalCall(x, currentFunc)
 			}
 			return true
 		})

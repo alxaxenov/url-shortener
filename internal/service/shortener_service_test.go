@@ -8,6 +8,7 @@ import (
 	"testing/synctest"
 
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/model"
+	repoModel "github.com/alxaxenov/url-shortener/tree/v2/internal/repository/model"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/service/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -57,6 +58,7 @@ func TestShortenerService_GetURL(t *testing.T) {
 			got, err := s.GetURL(context.Background(), "test_short")
 			assert.Equal(t, tt.want.url, got)
 			assert.Equal(t, tt.want.err, err)
+			repoMock.AssertExpectations(t)
 		})
 	}
 }
@@ -142,6 +144,7 @@ func TestShortenerService_UserURLs(t *testing.T) {
 			got, err := s.UserURLs(context.Background(), 42)
 			tt.expErr(t, err)
 			assert.Equalf(t, tt.want, got, "UserURLs - %s, unexpected result", tt.name)
+			repoMock.AssertExpectations(t)
 		})
 	}
 }
@@ -279,6 +282,8 @@ func TestShortenerService_AddURL(t *testing.T) {
 			got, err := s.AddURL(context.Background(), tt.originURL, 42)
 			tt.expErr(t, err)
 			assert.Equalf(t, tt.want, got, "AddURL - %s, unexpected result", tt.name)
+			repoMock.AssertExpectations(t)
+			hasherMock.AssertExpectations(t)
 		})
 	}
 }
@@ -324,6 +329,135 @@ func TestShortenerService_deleteWorker(t *testing.T) {
 				repoMock.AssertExpectations(t)
 			})
 
+		})
+	}
+}
+
+func TestShortenerService_SaveBatch(t *testing.T) {
+	tests := []struct {
+		name      string
+		basePath  string
+		batches   model.LoadBatchRequest
+		setupMock func(repo *mocks.IShortenerRepo, hash *mocks.Ihasher)
+		want      []model.BatchResponse
+		expErr    func(*testing.T, error)
+	}{
+		{
+			name:      "empty batches",
+			basePath:  "",
+			batches:   model.LoadBatchRequest{},
+			setupMock: func(repo *mocks.IShortenerRepo, hash *mocks.Ihasher) {},
+			expErr:    func(t *testing.T, err error) { assert.NoError(t, err) },
+			want:      []model.BatchResponse{},
+		},
+		{
+			name:      "parse error",
+			basePath:  "",
+			batches:   model.LoadBatchRequest{{"correlation", "not_url"}},
+			setupMock: func(repo *mocks.IShortenerRepo, hash *mocks.Ihasher) {},
+			expErr: func(t *testing.T, err error) {
+				assert.Error(t, err)
+				expectedPrefix := "Некорректный URL "
+				if !strings.Contains(err.Error(), expectedPrefix) {
+					t.Errorf("error message %q does not contain %q", err.Error(), expectedPrefix)
+				}
+			},
+			want: nil,
+		},
+		{
+			name:     "get short error",
+			basePath: "",
+			batches:  model.LoadBatchRequest{{"correlation", "http://url.com"}},
+			setupMock: func(repo *mocks.IShortenerRepo, hash *mocks.Ihasher) {
+				hash.EXPECT().GetShort().Times(1).Return("", errors.New("get_short_error"))
+			},
+			expErr: func(t *testing.T, err error) {
+				assert.Error(t, err)
+				expectedPrefix := "get_short_error"
+				if !strings.Contains(err.Error(), expectedPrefix) {
+					t.Errorf("error message %q does not contain %q", err.Error(), expectedPrefix)
+				}
+			},
+			want: nil,
+		},
+		{
+			name:     "join error",
+			basePath: "not_url:port",
+			batches:  model.LoadBatchRequest{{"correlation", "http://url.com"}},
+			setupMock: func(repo *mocks.IShortenerRepo, hash *mocks.Ihasher) {
+				hash.EXPECT().GetShort().Times(1).Return("QWERTY", nil)
+			},
+			expErr: func(t *testing.T, err error) {
+				assert.Error(t, err)
+				expectedPrefix := "SaveBatch failed to join path"
+				if !strings.Contains(err.Error(), expectedPrefix) {
+					t.Errorf("error message %q does not contain %q", err.Error(), expectedPrefix)
+				}
+			},
+			want: nil,
+		},
+		{
+			name:     "SaveBatch error",
+			basePath: "http://base_path.com",
+			batches:  model.LoadBatchRequest{{"correlation", "http://url.com"}},
+			setupMock: func(repo *mocks.IShortenerRepo, hash *mocks.Ihasher) {
+				hash.EXPECT().GetShort().Times(1).Return("QWERTY", nil)
+				repo.EXPECT().SaveBatch(
+					mock.Anything,
+					[]repoModel.UploadBatch{{"QWERTY", "http://url.com"}},
+					mock.AnythingOfType("int"),
+				).Times(1).Return(errors.New("save_batch_error"))
+			},
+			expErr: func(t *testing.T, err error) {
+				assert.Error(t, err)
+				expectedPrefix := "save_batch_error"
+				if !strings.Contains(err.Error(), expectedPrefix) {
+					t.Errorf("error message %q does not contain %q", err.Error(), expectedPrefix)
+				}
+			},
+			want: nil,
+		},
+		{
+			name:     "ok",
+			basePath: "http://base_path.com",
+			batches: model.LoadBatchRequest{
+				{"correlation_1", "http://url_1.com"},
+				{"correlation_2", "http://url_2.com"},
+			},
+			setupMock: func(repo *mocks.IShortenerRepo, hash *mocks.Ihasher) {
+				hash.EXPECT().GetShort().Times(1).Return("QWERTY", nil)
+				hash.EXPECT().GetShort().Times(1).Return("ASDFG", nil)
+				repo.EXPECT().SaveBatch(
+					mock.Anything,
+					[]repoModel.UploadBatch{{"QWERTY", "http://url_1.com"}, {"ASDFG", "http://url_2.com"}},
+					mock.AnythingOfType("int"),
+				).Times(1).Return(nil)
+			},
+			expErr: func(t *testing.T, err error) {
+				assert.NoError(t, err)
+			},
+			want: []model.BatchResponse{
+				{"correlation_1", "http://base_path.com/QWERTY"},
+				{"correlation_2", "http://base_path.com/ASDFG"},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			repoMock := mocks.NewIShortenerRepo(t)
+			hasherMock := mocks.NewIhasher(t)
+			tt.setupMock(repoMock, hasherMock)
+			s := &ShortenerService{
+				repo:     repoMock,
+				hasher:   hasherMock,
+				basePath: tt.basePath,
+			}
+
+			got, err := s.SaveBatch(context.Background(), tt.batches, 42)
+			tt.expErr(t, err)
+			assert.Equalf(t, tt.want, got, "AddURL - %s, unexpected result", tt.name)
+			repoMock.AssertExpectations(t)
+			hasherMock.AssertExpectations(t)
 		})
 	}
 }

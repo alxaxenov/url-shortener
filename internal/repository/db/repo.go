@@ -3,6 +3,7 @@ package db
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -54,6 +55,9 @@ func (d *DBRepo) GetValue(ctx context.Context, short string) (string, bool, erro
 
 // SaveBatch сохранение батча новых URL.
 func (d *DBRepo) SaveBatch(ctx context.Context, batches []repoModel.UploadBatch, userID int) error {
+	if len(batches) == 0 {
+		return errors.New("SaveBatch no batches to upload")
+	}
 	db := d.Connector.GetDB()
 	createdAt := time.Now()
 	valueStrings := make([]string, 0, len(batches))
