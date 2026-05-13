@@ -1,6 +1,14 @@
 package handler
 
 import (
+	"bytes"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/tls"
+	"crypto/x509"
+	"encoding/pem"
+	"fmt"
+	"net"
 	"net/http"
 	"time"
 
@@ -35,7 +43,7 @@ const (
 )
 
 // Serve подключение хендлеров и запуск роутера.
-func Serve(addr string, h IHandler, userMiddleware IComplexMiddleware) error {
+func Serve(addr string, h IHandler, userMiddleware IComplexMiddleware, enableHTTPS bool) error {
 	r := chi.NewRouter()
 
 	r.Use(middleware.GzipMiddleware)
@@ -58,5 +66,60 @@ func Serve(addr string, h IHandler, userMiddleware IComplexMiddleware) error {
 	})
 
 	logger.Logger.Info("Running server on", addr)
-	return http.ListenAndServe(addr, r)
+	if !enableHTTPS {
+		return http.ListenAndServe(addr, r)
+	}
+	listener, err := getHTTPSListener(addr)
+	if err != nil {
+		return err
+	}
+	return http.Serve(listener, r)
+
+}
+
+func getHTTPSListener(addr string) (net.Listener, error) {
+	cert := &x509.Certificate{
+		IPAddresses: []net.IP{net.IPv4(127, 0, 0, 1)},
+		NotBefore:   time.Now(),
+		NotAfter:    time.Now().AddDate(1, 0, 0),
+		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
+		KeyUsage:    x509.KeyUsageDigitalSignature,
+	}
+
+	privateKey, err := rsa.GenerateKey(rand.Reader, 4096)
+	if err != nil {
+		return nil, fmt.Errorf("getHTTPSListener GenerateKey error %w", err)
+	}
+	certBytes, err := x509.CreateCertificate(rand.Reader, cert, cert, &privateKey.PublicKey, privateKey)
+	if err != nil {
+		return nil, fmt.Errorf("getHTTPSListener CreateCertificate error %w", err)
+	}
+
+	var certPEM bytes.Buffer
+	err = pem.Encode(&certPEM, &pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: certBytes,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("getHTTPSListener pem.Encode cert error %w", err)
+	}
+	var privateKeyPEM bytes.Buffer
+	err = pem.Encode(&privateKeyPEM, &pem.Block{
+		Type:  "RSA PRIVATE KEY",
+		Bytes: x509.MarshalPKCS1PrivateKey(privateKey),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("getHTTPSListener pem.Encode private key error %w", err)
+	}
+
+	TLSCert := tls.Certificate{
+		Certificate: [][]byte{certBytes},
+		PrivateKey:  privateKey,
+	}
+	config := &tls.Config{Certificates: []tls.Certificate{TLSCert}}
+	listener, err := tls.Listen("tcp", addr, config)
+	if err != nil {
+		return nil, fmt.Errorf("getHTTPSListener tls.Listen error %w", err)
+	}
+	return listener, nil
 }

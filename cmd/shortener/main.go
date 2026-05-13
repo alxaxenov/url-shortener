@@ -92,5 +92,5 @@ func run() error {
 	h := handler.NewShortenerHandler(srv, dbConn, auditPudlisher)
 	userMiddleware := middleware.NewUserMiddleware(cfg.AuthCookieSecret, repo)
 
-	return handler.Serve(cfg.Addr, h, userMiddleware)
+	return handler.Serve(cfg.Addr, h, userMiddleware, cfg.EnableHTTPS)
 }

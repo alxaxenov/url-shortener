@@ -21,6 +21,7 @@ type Config struct {
 	AuditFile        string `env:"AUDIT_FILE"`
 	AuditURL         string `env:"AUDIT_URL"`
 	RunPPROF         bool   `env:"RUN_PPROF" envDefault:"false"`
+	EnableHTTPS      bool   `env:"ENABLE_HTTPS" envDefault:"false"`
 }
 
 // checkBasePath проверка наличия и валидности поля BasePath в Config.
@@ -48,6 +49,7 @@ func ParseConfig() (*Config, error) {
 	flag.StringVar(&cfg.DBDSN, "d", "", "database connection string")
 	flag.StringVar(&cfg.AuditFile, "audit-file", "", "audit file path")
 	flag.StringVar(&cfg.AuditURL, "audit-url", "", "audit url")
+	flag.BoolVar(&cfg.EnableHTTPS, "s", false, "enable https")
 	flag.Parse()
 	err := env.Parse(&cfg)
 	if err != nil {
