@@ -16,7 +16,7 @@ func NewHasher() *Hasher {
 	return &Hasher{"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"}
 }
 
-// // GetShort генерация случайного хэша для короткого URL.
+// GetShort генерация случайного хэша для короткого URL.
 func (s *Hasher) GetShort() (string, error) {
 	b := make([]byte, 6)
 	_, err := rand.Read(b)

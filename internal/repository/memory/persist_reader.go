@@ -8,7 +8,7 @@ import (
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/logger"
 )
 
-// NewWriter структура, чтобы иметь возможность мокировать фабрику.
+// NewReader структура, чтобы иметь возможность мокировать фабрику.
 type NewReader struct{}
 
 // NewReader конструктор, открывающий файл на чтение. Возвращает ссылку на reader.

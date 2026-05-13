@@ -94,6 +94,9 @@ func (s *ShortenerService) GetURL(ctx context.Context, short string) (string, er
 // SaveBatch сохранение нескольких новых URL батчем.
 func (s *ShortenerService) SaveBatch(ctx context.Context, batches model.LoadBatchRequest, userID int) ([]model.BatchResponse, error) {
 	resultBatches := make([]model.BatchResponse, 0, len(batches))
+	if len(batches) == 0 {
+		return resultBatches, nil
+	}
 	UploadBatches := make([]repoModel.UploadBatch, 0, len(batches))
 	for _, batch := range batches {
 		if _, err := url.ParseRequestURI(batch.OriginalURL); err != nil {
