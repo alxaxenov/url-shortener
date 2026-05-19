@@ -16,6 +16,8 @@ import (
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/middleware"
 	"github.com/go-chi/chi/v5"
 
+	"context"
+
 	_ "github.com/alxaxenov/url-shortener/tree/v2/docs"
 	"github.com/swaggo/http-swagger"
 )
@@ -42,8 +44,45 @@ const (
 	timeoutBatch   = 5 * time.Second
 )
 
-// Serve подключение хендлеров и запуск роутера.
-func Serve(addr string, h IHandler, userMiddleware IComplexMiddleware, enableHTTPS bool) error {
+type Server struct {
+	addr        string
+	innerServer *http.Server
+	router      *chi.Mux
+	listener    net.Listener
+	isHTTPS     bool
+}
+
+func NewServer(addr string, handler IHandler, userMiddleware IComplexMiddleware, isHTTPS bool) (*Server, error) {
+	r := initRouter(handler, userMiddleware)
+	srv := http.Server{
+		Addr:    addr,
+		Handler: r,
+	}
+	var listener net.Listener
+	if isHTTPS {
+		l, err := getHTTPSListener(addr)
+		if err != nil {
+			return nil, err
+		}
+		listener = l
+	}
+	return &Server{addr: addr, innerServer: &srv, router: r, listener: listener, isHTTPS: isHTTPS}, nil
+}
+
+func (s *Server) Start() error {
+	logger.Logger.Info("Running server on", s.addr)
+	if !s.isHTTPS {
+		return s.innerServer.ListenAndServe()
+	}
+	return s.innerServer.Serve(s.listener)
+}
+
+func (s *Server) Stop(ctx context.Context) error {
+	logger.Logger.Info("Stopping server")
+	return s.innerServer.Shutdown(ctx)
+}
+
+func initRouter(h IHandler, userMiddleware IComplexMiddleware) *chi.Mux {
 	r := chi.NewRouter()
 
 	r.Use(middleware.GzipMiddleware)
@@ -64,17 +103,7 @@ func Serve(addr string, h IHandler, userMiddleware IComplexMiddleware, enableHTT
 		r.Get("/user/urls", timeoutHandler(h.UserURLs, timeoutDefault, ""))
 		r.Delete("/user/urls", timeoutHandler(h.DeleteURLs, timeoutDefault, ""))
 	})
-
-	logger.Logger.Info("Running server on", addr)
-	if !enableHTTPS {
-		return http.ListenAndServe(addr, r)
-	}
-	listener, err := getHTTPSListener(addr)
-	if err != nil {
-		return err
-	}
-	return http.Serve(listener, r)
-
+	return r
 }
 
 func getHTTPSListener(addr string) (net.Listener, error) {
