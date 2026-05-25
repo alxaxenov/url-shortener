@@ -66,7 +66,7 @@ func run() error {
 
 	g, ctx := errgroup.WithContext(rootCtx)
 
-	context.AfterFunc(ctx, func() {
+	context.AfterFunc(rootCtx, func() {
 		ctx, cancel := context.WithTimeout(context.Background(), timeoutCommon)
 		defer cancel()
 

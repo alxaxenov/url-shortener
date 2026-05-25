@@ -1,12 +1,10 @@
 package handler
 
 import (
-	"bytes"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/pem"
 	"fmt"
 	"net"
 	"net/http"
@@ -124,22 +122,22 @@ func getHTTPSListener(addr string) (net.Listener, error) {
 		return nil, fmt.Errorf("getHTTPSListener CreateCertificate error %w", err)
 	}
 
-	var certPEM bytes.Buffer
-	err = pem.Encode(&certPEM, &pem.Block{
-		Type:  "CERTIFICATE",
-		Bytes: certBytes,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("getHTTPSListener pem.Encode cert error %w", err)
-	}
-	var privateKeyPEM bytes.Buffer
-	err = pem.Encode(&privateKeyPEM, &pem.Block{
-		Type:  "RSA PRIVATE KEY",
-		Bytes: x509.MarshalPKCS1PrivateKey(privateKey),
-	})
-	if err != nil {
-		return nil, fmt.Errorf("getHTTPSListener pem.Encode private key error %w", err)
-	}
+	//var certPEM bytes.Buffer
+	//err = pem.Encode(&certPEM, &pem.Block{
+	//	Type:  "CERTIFICATE",
+	//	Bytes: certBytes,
+	//})
+	//if err != nil {
+	//	return nil, fmt.Errorf("getHTTPSListener pem.Encode cert error %w", err)
+	//}
+	//var privateKeyPEM bytes.Buffer
+	//err = pem.Encode(&privateKeyPEM, &pem.Block{
+	//	Type:  "RSA PRIVATE KEY",
+	//	Bytes: x509.MarshalPKCS1PrivateKey(privateKey),
+	//})
+	//if err != nil {
+	//	return nil, fmt.Errorf("getHTTPSListener pem.Encode private key error %w", err)
+	//}
 
 	TLSCert := tls.Certificate{
 		Certificate: [][]byte{certBytes},
