@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"sync"
 
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/logger"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/model"
@@ -33,18 +34,21 @@ type ShortenerService struct {
 	basePath      string
 	hasher        Ihasher
 	DeleteMsgChan chan model.DeleteRequest
+	w             sync.WaitGroup
 }
 
 // NewShortenerService конструктор ShortenerService.
-func NewShortenerService(repo IShortenerRepo, basePath string, deleteWorkers int, hasher Ihasher) *ShortenerService {
+func NewShortenerService(ctx context.Context, repo IShortenerRepo, basePath string, deleteWorkers int, hasher Ihasher) *ShortenerService {
 	instance := &ShortenerService{
 		repo:          repo,
 		basePath:      basePath,
 		hasher:        hasher,
 		DeleteMsgChan: make(chan model.DeleteRequest, 1024),
+		w:             sync.WaitGroup{},
 	}
-	for range deleteWorkers {
-		go instance.deleteWorker()
+	for i := range deleteWorkers {
+		instance.w.Add(1)
+		go instance.deleteWorker(i, ctx)
 	}
 	return instance
 }
@@ -137,6 +141,7 @@ func (s *ShortenerService) UserURLs(ctx context.Context, userID int) ([]model.Us
 // CLoseDeleteChan метод для закрытия очереди на архивацию URL.
 func (s *ShortenerService) CLoseDeleteChan() {
 	close(s.DeleteMsgChan)
+	s.w.Wait()
 }
 
 // AppendDelete добавление запроса в очередь на архивацию.
@@ -145,17 +150,19 @@ func (s *ShortenerService) AppendDelete(userID int, URLs model.DeleteURLs) {
 }
 
 // deleteWorker логика воркера, обрабатывающего запросы на архивацию.
-func (s *ShortenerService) deleteWorker() {
+func (s *ShortenerService) deleteWorker(i int, ctx context.Context) {
+	defer s.w.Done()
 	for msg := range s.DeleteMsgChan {
 		if len(msg.URLs) == 0 {
 			logger.Logger.Infof("Delete URLs is empty user %d", msg.UserID)
 			continue
 		}
-		affected, err := s.repo.DeleteURLs(context.Background(), &msg)
+		affected, err := s.repo.DeleteURLs(ctx, &msg)
 		if err != nil {
 			logger.Logger.Error("DeleteURLs error", "error", err)
 		} else {
 			logger.Logger.Infof("DeleteURLs affected %d rows", affected)
 		}
 	}
+	logger.Logger.Infof("Delete worker %d done", i)
 }

@@ -321,7 +321,7 @@ func TestShortenerService_deleteWorker(t *testing.T) {
 			synctest.Test(t, func(t *testing.T) {
 				repoMock := mocks.NewIShortenerRepo(t)
 				tt.setupMock(repoMock)
-				s := NewShortenerService(repoMock, "", 1, nil)
+				s := NewShortenerService(context.Background(), repoMock, "", 1, nil)
 
 				s.AppendDelete(42, tt.urls)
 				s.CLoseDeleteChan()
