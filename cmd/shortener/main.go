@@ -101,12 +101,6 @@ func run() error {
 			}
 			return nil
 		})
-		//go func() {
-		//	logger.Logger.Info("pprof listening on :6060")
-		//	if err := http.ListenAndServe(":6060", nil); err != nil {
-		//		logger.Logger.Info("pprof error: %v", err)
-		//	}
-		//}()
 	}
 
 	var dbConn db.DBTX
@@ -151,7 +145,11 @@ func run() error {
 		return nil
 	})
 
-	h := handler.NewShortenerHandler(srv, dbConn, auditPudlisher)
+	h, err := handler.NewShortenerHandler(srv, dbConn, auditPudlisher, cfg.TrustedSubnet)
+	if err != nil {
+		return err
+	}
+
 	userMiddleware := middleware.NewUserMiddleware(cfg.AuthCookieSecret, repo)
 
 	server, err := handler.NewServer(cfg.Addr, h, userMiddleware, cfg.EnableHTTPS)

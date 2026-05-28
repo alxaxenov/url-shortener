@@ -21,6 +21,7 @@ type IShortenerRepo interface {
 	CreateUser(context.Context) (int, error)
 	UserURLs(context.Context, int) ([]model.UserURLs, error)
 	DeleteURLs(context.Context, *model.DeleteRequest) (int, error)
+	URLsAndUsersCount(context.Context) (int, int, error)
 }
 
 //go:generate mockery --name Ihasher --with-expecter=true --filename mock_hasher.go
@@ -147,6 +148,11 @@ func (s *ShortenerService) CLoseDeleteChan() {
 // AppendDelete добавление запроса в очередь на архивацию.
 func (s *ShortenerService) AppendDelete(userID int, URLs model.DeleteURLs) {
 	s.DeleteMsgChan <- model.DeleteRequest{UserID: userID, URLs: URLs}
+}
+
+// URLsAndUsersCount Подсчет количества добавленных URLS и пользователей.
+func (s *ShortenerService) URLsAndUsersCount(ctx context.Context) (int, int, error) {
+	return s.repo.URLsAndUsersCount(ctx)
 }
 
 // deleteWorker логика воркера, обрабатывающего запросы на архивацию.

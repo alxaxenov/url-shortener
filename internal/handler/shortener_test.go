@@ -769,7 +769,8 @@ func TestNewShortenerHandler(t *testing.T) {
 	d := DBMock.NewDBTX(t)
 	a := mocks.NewAuditPublisher(t)
 
-	handler := NewShortenerHandler(s, d, a)
+	handler, err := NewShortenerHandler(s, d, a, "")
+	assert.NoError(t, err)
 
 	if handler == nil {
 		t.Fatal("handler is nil")
