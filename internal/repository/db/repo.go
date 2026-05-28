@@ -131,3 +131,22 @@ func (d *DBRepo) DeleteURLs(ctx context.Context, deleteReq *model.DeleteRequest)
 
 	return int(rowsAffected), nil
 }
+
+// URLsAndUsersCount Подсчет количества URL и пользователей в базе.
+func (d *DBRepo) URLsAndUsersCount(ctx context.Context) (int, int, error) {
+	db := d.Connector.GetDB()
+
+	URLsRow := db.QueryRowContext(ctx, "COUNT(*) FROM urls WHERE active = true")
+	var URLs int
+	if err := URLsRow.Scan(&URLs); err != nil {
+		return 0, 0, fmt.Errorf("URLsAndUsersCount failed to fetch URLs count: %w", err)
+	}
+
+	UsersRow := db.QueryRowContext(ctx, "COUNT(*) FROM users")
+	var Users int
+	if err := UsersRow.Scan(&Users); err != nil {
+		return 0, 0, fmt.Errorf("URLsAndUsersCount failed to fetch users count: %w", err)
+	}
+
+	return URLs, Users, nil
+}

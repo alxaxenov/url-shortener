@@ -28,6 +28,7 @@ type Config struct {
 	RunPPROF         bool   `env:"RUN_PPROF"`
 	EnableHTTPS      bool   `env:"ENABLE_HTTPS" json:"enable_https"`
 	ConfigPath       string `env:"CONFIG"`
+	TrustedSubnet    string `env:"TRUSTED_SUBNET"`
 }
 
 // checkBasePath проверка наличия и валидности поля BasePath в Config.
@@ -56,6 +57,7 @@ func configDefault() *Config {
 		AuditURL:         "",
 		RunPPROF:         false,
 		EnableHTTPS:      false,
+		TrustedSubnet:    "",
 	}
 }
 
@@ -75,6 +77,7 @@ func ParseConfig() (*Config, error) {
 	flag.BoolVar(&cfg.EnableHTTPS, "s", cfg.EnableHTTPS, "enable https")
 	flag.StringVar(&cfg.ConfigPath, "c", "", "config file path")
 	flag.StringVar(&cfg.ConfigPath, "config", "", "config file path")
+	flag.StringVar(&cfg.TrustedSubnet, "t", cfg.TrustedSubnet, "trusted subnet ip addr")
 	flag.Parse()
 	err = env.Parse(cfg)
 	if err != nil {

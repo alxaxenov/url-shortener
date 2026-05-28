@@ -29,6 +29,7 @@ type IHandler interface {
 	SaveBatch(w http.ResponseWriter, r *http.Request)
 	UserURLs(w http.ResponseWriter, r *http.Request)
 	DeleteURLs(w http.ResponseWriter, r *http.Request)
+	DataCount(w http.ResponseWriter, r *http.Request)
 }
 
 // IComplexMiddleware интерфейс сложной middleware, для запуска которой необходимо вызвать метод.
@@ -85,22 +86,27 @@ func initRouter(h IHandler, userMiddleware IComplexMiddleware) *chi.Mux {
 
 	r.Use(middleware.GzipMiddleware)
 	r.Use(middleware.WithLogging)
-	if userMiddleware != nil {
-		r.Use(userMiddleware.Use)
-	}
 
 	r.Get("/swagger/*", httpSwagger.WrapHandler)
-	r.Post("/", timeoutHandler(h.AddValue, timeoutDefault, ""))
-	r.Get("/{id}", timeoutHandler(h.GetValue, timeoutDefault, ""))
 	r.Get("/ping", timeoutHandler(h.Ping, timeoutDefault, ""))
+	r.Get("/api/internal/stats", timeoutHandler(h.DataCount, timeoutDefault, ""))
 
-	r.Route("/api", func(r chi.Router) {
-		r.Post("/shorten", timeoutHandler(h.AddValueJSON, timeoutDefault, ""))
-		r.Post("/shorten/batch", timeoutHandler(h.SaveBatch, timeoutBatch, ""))
+	r.Group(func(r chi.Router) {
+		if userMiddleware != nil {
+			r.Use(userMiddleware.Use)
+		}
 
-		r.Get("/user/urls", timeoutHandler(h.UserURLs, timeoutDefault, ""))
-		r.Delete("/user/urls", timeoutHandler(h.DeleteURLs, timeoutDefault, ""))
+		r.Post("/", timeoutHandler(h.AddValue, timeoutDefault, ""))
+		r.Get("/{id}", timeoutHandler(h.GetValue, timeoutDefault, ""))
+
+		r.Route("/api", func(r chi.Router) {
+			r.Post("/shorten", timeoutHandler(h.AddValueJSON, timeoutDefault, ""))
+			r.Post("/shorten/batch", timeoutHandler(h.SaveBatch, timeoutBatch, ""))
+			r.Get("/user/urls", timeoutHandler(h.UserURLs, timeoutDefault, ""))
+			r.Delete("/user/urls", timeoutHandler(h.DeleteURLs, timeoutDefault, ""))
+		})
 	})
+
 	return r
 }
 
@@ -121,23 +127,6 @@ func getHTTPSListener(addr string) (net.Listener, error) {
 	if err != nil {
 		return nil, fmt.Errorf("getHTTPSListener CreateCertificate error %w", err)
 	}
-
-	//var certPEM bytes.Buffer
-	//err = pem.Encode(&certPEM, &pem.Block{
-	//	Type:  "CERTIFICATE",
-	//	Bytes: certBytes,
-	//})
-	//if err != nil {
-	//	return nil, fmt.Errorf("getHTTPSListener pem.Encode cert error %w", err)
-	//}
-	//var privateKeyPEM bytes.Buffer
-	//err = pem.Encode(&privateKeyPEM, &pem.Block{
-	//	Type:  "RSA PRIVATE KEY",
-	//	Bytes: x509.MarshalPKCS1PrivateKey(privateKey),
-	//})
-	//if err != nil {
-	//	return nil, fmt.Errorf("getHTTPSListener pem.Encode private key error %w", err)
-	//}
 
 	TLSCert := tls.Certificate{
 		Certificate: [][]byte{certBytes},

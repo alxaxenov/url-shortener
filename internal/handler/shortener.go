@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
+	"net"
 	"net/http"
 
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/config/db"
@@ -26,6 +28,7 @@ type IShortenerService interface {
 	SaveBatch(context.Context, model.LoadBatchRequest, int) ([]model.BatchResponse, error)
 	UserURLs(context.Context, int) ([]model.UserURLs, error)
 	AppendDelete(int, model.DeleteURLs)
+	URLsAndUsersCount(context.Context) (int, int, error)
 }
 
 // ISemaphore интерфейс реализации семафора.
@@ -49,12 +52,21 @@ type ShortenerHandler struct {
 	DB              db.DBTX
 	deleteSemaphore ISemaphore
 	audit           AuditPublisher
+	ipnet           *net.IPNet
 }
 
 // NewShortenerHandler конструктор ShortenerHandler.
-func NewShortenerHandler(s IShortenerService, d db.DBTX, audit AuditPublisher) *ShortenerHandler {
+func NewShortenerHandler(s IShortenerService, d db.DBTX, audit AuditPublisher, subnet string) (*ShortenerHandler, error) {
 	semaphore := utils.NewSemaphore(5)
-	return &ShortenerHandler{Service: s, DB: d, deleteSemaphore: semaphore, audit: audit}
+	var ipnet *net.IPNet
+	var err error
+	if subnet != "" {
+		_, ipnet, err = net.ParseCIDR(subnet)
+		if err != nil {
+			return nil, fmt.Errorf("NewShortenerHandler parse subnet error: %w", err)
+		}
+	}
+	return &ShortenerHandler{Service: s, DB: d, deleteSemaphore: semaphore, audit: audit, ipnet: ipnet}, nil
 }
 
 // AddValue ручка генерации короткого URL принимает и отдает text/plain.
@@ -317,4 +329,43 @@ func (h *ShortenerHandler) DeleteURLs(w http.ResponseWriter, r *http.Request) {
 	}()
 	w.WriteHeader(http.StatusAccepted)
 	w.Write([]byte(http.StatusText(http.StatusAccepted)))
+}
+
+// DataCount Подсчет количества добавленных URL и пользователей.
+// Эндпоинт доступен только для запросов, входящих в подсеть ShortenerHandler.ipnet.
+//
+// @Summary Подсчет коротких URL пользователя
+// @Produce json
+// @Success 200 {object} model.DataCount
+// @Failure 403 {string} string "Forbidden"
+// @Failure 500 {string} string "Internal Server Error"
+// @Router /api/internal/stats [get]
+func (h *ShortenerHandler) DataCount(w http.ResponseWriter, r *http.Request) {
+	if h.ipnet == nil {
+		http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+		return
+	}
+	clientIP := r.Header.Get("X-Real-IP")
+	ip := net.ParseIP(clientIP)
+	if !h.ipnet.Contains(ip) {
+		http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+		return
+	}
+
+	urls, users, err := h.Service.URLsAndUsersCount(r.Context())
+	if err != nil {
+		logger.Logger.Error("DataCount service.URLsAndUsersCount", "error", err)
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+
+	respData, err := json.Marshal(model.DataCount{urls, users})
+	if err != nil {
+		logger.Logger.Error("DataCount response marshal", "error", err)
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("content-type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(respData)
 }
