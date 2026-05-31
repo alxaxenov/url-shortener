@@ -16,11 +16,13 @@ import (
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/config/db"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/config/db/pg"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/handler"
+	"github.com/alxaxenov/url-shortener/tree/v2/internal/handler/grpc"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/logger"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/middleware"
 	repo_db "github.com/alxaxenov/url-shortener/tree/v2/internal/repository/db"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/repository/memory"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/service"
+	"github.com/alxaxenov/url-shortener/tree/v2/internal/utils"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/worker/audit"
 	"golang.org/x/sync/errgroup"
 )
@@ -145,12 +147,35 @@ func run() error {
 		return nil
 	})
 
+	tokenParser := &utils.TokenDecoder{SecretKey: cfg.AuthCookieSecret}
+
+	gServer, listener, err := grpc.NewGRPCServer(cfg.GAddr, srv, auditPudlisher, tokenParser)
+	if err != nil {
+		return err
+	}
+	// Стар gRPC сервера
+	g.Go(func() error {
+		logger.Logger.Info("Running gRPC server on", cfg.GAddr)
+		if err := gServer.Serve(listener); err != nil {
+			return fmt.Errorf("start gRPC server failed: %w", err)
+		}
+		return nil
+	})
+	// Завершение работы gRPC сервера
+	g.Go(func() error {
+		defer logger.Logger.Info("gRPC server closed")
+		<-rootCtx.Done()
+
+		gServer.GracefulStop()
+		return nil
+	})
+
 	h, err := handler.NewShortenerHandler(srv, dbConn, auditPudlisher, cfg.TrustedSubnet)
 	if err != nil {
 		return err
 	}
 
-	userMiddleware := middleware.NewUserMiddleware(cfg.AuthCookieSecret, repo)
+	userMiddleware := middleware.NewUserMiddleware(repo, tokenParser)
 
 	server, err := handler.NewServer(cfg.Addr, h, userMiddleware, cfg.EnableHTTPS)
 	if err != nil {

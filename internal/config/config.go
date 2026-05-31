@@ -19,6 +19,7 @@ var basePathDefault = "http://localhost:8080"
 // Config структура конфига сервиса.
 type Config struct {
 	Addr             string `env:"SERVER_ADDRESS" json:"server_address"`
+	GAddr            string `env:"SERVER_GRPC_ADDRESS"`
 	BasePath         string `env:"BASE_URL" json:"base_url"`
 	FileStoragePath  string `env:"FILE_STORAGE_PATH" json:"file_storage_path"`
 	DBDSN            string `env:"DATABASE_DSN" json:"database_dsn"`
@@ -49,6 +50,7 @@ func (c Config) checkBasePath() error {
 func configDefault() *Config {
 	return &Config{
 		Addr:             ":8080",
+		GAddr:            ":8081",
 		BasePath:         basePathDefault,
 		FileStoragePath:  "file_storage.txt",
 		DBDSN:            "",
