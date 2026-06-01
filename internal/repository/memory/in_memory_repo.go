@@ -172,3 +172,8 @@ func (r *inMemoryRepo) DeleteURLs(ctx context.Context, deleteReq *model.DeleteRe
 	}
 	return affected, nil
 }
+
+// URLsAndUsersCount Подсчет количества URL и пользователей в базе.
+func (r *inMemoryRepo) URLsAndUsersCount(ctx context.Context) (int, int, error) {
+	return len(r.urls), len(r.usersURLs), nil
+}

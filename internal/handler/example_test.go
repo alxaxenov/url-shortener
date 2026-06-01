@@ -17,7 +17,7 @@ import (
 var (
 	memoryRepo, _ = memory.NewInMemoryRepo(nil)
 	srv           = service.NewShortenerService(context.Background(), memoryRepo, "http://test_path.com", 1, service.NewHasher())
-	handler       = handlerPack.NewShortenerHandler(srv, nil, nil)
+	handler, _    = handlerPack.NewShortenerHandler(srv, nil, nil, "")
 	ctx           = context.WithValue(context.Background(), utils.UserIDKey, 42)
 	shorts        []string
 )

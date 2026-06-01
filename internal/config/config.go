@@ -19,6 +19,7 @@ var basePathDefault = "http://localhost:8080"
 // Config структура конфига сервиса.
 type Config struct {
 	Addr             string `env:"SERVER_ADDRESS" json:"server_address"`
+	GAddr            string `env:"SERVER_GRPC_ADDRESS"`
 	BasePath         string `env:"BASE_URL" json:"base_url"`
 	FileStoragePath  string `env:"FILE_STORAGE_PATH" json:"file_storage_path"`
 	DBDSN            string `env:"DATABASE_DSN" json:"database_dsn"`
@@ -28,6 +29,7 @@ type Config struct {
 	RunPPROF         bool   `env:"RUN_PPROF"`
 	EnableHTTPS      bool   `env:"ENABLE_HTTPS" json:"enable_https"`
 	ConfigPath       string `env:"CONFIG"`
+	TrustedSubnet    string `env:"TRUSTED_SUBNET"`
 }
 
 // checkBasePath проверка наличия и валидности поля BasePath в Config.
@@ -48,6 +50,7 @@ func (c Config) checkBasePath() error {
 func configDefault() *Config {
 	return &Config{
 		Addr:             ":8080",
+		GAddr:            ":8081",
 		BasePath:         basePathDefault,
 		FileStoragePath:  "file_storage.txt",
 		DBDSN:            "",
@@ -56,6 +59,7 @@ func configDefault() *Config {
 		AuditURL:         "",
 		RunPPROF:         false,
 		EnableHTTPS:      false,
+		TrustedSubnet:    "",
 	}
 }
 
@@ -75,6 +79,7 @@ func ParseConfig() (*Config, error) {
 	flag.BoolVar(&cfg.EnableHTTPS, "s", cfg.EnableHTTPS, "enable https")
 	flag.StringVar(&cfg.ConfigPath, "c", "", "config file path")
 	flag.StringVar(&cfg.ConfigPath, "config", "", "config file path")
+	flag.StringVar(&cfg.TrustedSubnet, "t", cfg.TrustedSubnet, "trusted subnet ip addr")
 	flag.Parse()
 	err = env.Parse(cfg)
 	if err != nil {

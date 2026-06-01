@@ -232,6 +232,69 @@ func (_c *IShortenerService_SaveBatch_Call) RunAndReturn(run func(context.Contex
 	return _c
 }
 
+// URLsAndUsersCount provides a mock function with given fields: _a0
+func (_m *IShortenerService) URLsAndUsersCount(_a0 context.Context) (int, int, error) {
+	ret := _m.Called(_a0)
+
+	if len(ret) == 0 {
+		panic("no return value specified for URLsAndUsersCount")
+	}
+
+	var r0 int
+	var r1 int
+	var r2 error
+	if rf, ok := ret.Get(0).(func(context.Context) (int, int, error)); ok {
+		return rf(_a0)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context) int); ok {
+		r0 = rf(_a0)
+	} else {
+		r0 = ret.Get(0).(int)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context) int); ok {
+		r1 = rf(_a0)
+	} else {
+		r1 = ret.Get(1).(int)
+	}
+
+	if rf, ok := ret.Get(2).(func(context.Context) error); ok {
+		r2 = rf(_a0)
+	} else {
+		r2 = ret.Error(2)
+	}
+
+	return r0, r1, r2
+}
+
+// IShortenerService_URLsAndUsersCount_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'URLsAndUsersCount'
+type IShortenerService_URLsAndUsersCount_Call struct {
+	*mock.Call
+}
+
+// URLsAndUsersCount is a helper method to define mock.On call
+//   - _a0 context.Context
+func (_e *IShortenerService_Expecter) URLsAndUsersCount(_a0 interface{}) *IShortenerService_URLsAndUsersCount_Call {
+	return &IShortenerService_URLsAndUsersCount_Call{Call: _e.mock.On("URLsAndUsersCount", _a0)}
+}
+
+func (_c *IShortenerService_URLsAndUsersCount_Call) Run(run func(_a0 context.Context)) *IShortenerService_URLsAndUsersCount_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *IShortenerService_URLsAndUsersCount_Call) Return(_a0 int, _a1 int, _a2 error) *IShortenerService_URLsAndUsersCount_Call {
+	_c.Call.Return(_a0, _a1, _a2)
+	return _c
+}
+
+func (_c *IShortenerService_URLsAndUsersCount_Call) RunAndReturn(run func(context.Context) (int, int, error)) *IShortenerService_URLsAndUsersCount_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // UserURLs provides a mock function with given fields: _a0, _a1
 func (_m *IShortenerService) UserURLs(_a0 context.Context, _a1 int) ([]model.UserURLs, error) {
 	ret := _m.Called(_a0, _a1)
