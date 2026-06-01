@@ -32,12 +32,12 @@ type Claims struct {
 	UserID int `json:"user_id"`
 }
 
-type TokenDecoder struct {
+type JWTManager struct {
 	SecretKey string
 }
 
 // GetUserID получение id пользователя из токена.
-func (td *TokenDecoder) GetUserID(tokenString string) (int, error) {
+func (td *JWTManager) GetUserID(tokenString string) (int, error) {
 	claims := &Claims{}
 	token, err := jwt.ParseWithClaims(tokenString, claims,
 		func(t *jwt.Token) (any, error) {
@@ -56,7 +56,7 @@ func (td *TokenDecoder) GetUserID(tokenString string) (int, error) {
 }
 
 // BuildTokenString генерация токена.
-func (td *TokenDecoder) BuildTokenString(id int) (string, error) {
+func (td *JWTManager) BuildTokenString(id int) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, Claims{
 		UserID: id,
 	})

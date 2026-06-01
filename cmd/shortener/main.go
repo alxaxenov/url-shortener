@@ -16,7 +16,7 @@ import (
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/config/db"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/config/db/pg"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/handler"
-	"github.com/alxaxenov/url-shortener/tree/v2/internal/handler/grpc"
+	"github.com/alxaxenov/url-shortener/tree/v2/internal/handler/grpchandler"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/logger"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/middleware"
 	repo_db "github.com/alxaxenov/url-shortener/tree/v2/internal/repository/db"
@@ -147,9 +147,9 @@ func run() error {
 		return nil
 	})
 
-	tokenParser := &utils.TokenDecoder{SecretKey: cfg.AuthCookieSecret}
+	tokenManager := &utils.JWTManager{SecretKey: cfg.AuthCookieSecret}
 
-	gServer, listener, err := grpc.NewGRPCServer(cfg.GAddr, srv, auditPudlisher, tokenParser)
+	gServer, listener, err := grpchandler.NewGRPCServer(cfg.GAddr, srv, auditPudlisher, tokenManager)
 	if err != nil {
 		return err
 	}
@@ -175,7 +175,7 @@ func run() error {
 		return err
 	}
 
-	userMiddleware := middleware.NewUserMiddleware(repo, tokenParser)
+	userMiddleware := middleware.NewUserMiddleware(repo, tokenManager)
 
 	server, err := handler.NewServer(cfg.Addr, h, userMiddleware, cfg.EnableHTTPS)
 	if err != nil {

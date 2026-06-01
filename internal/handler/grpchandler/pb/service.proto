@@ -2,7 +2,7 @@ edition = "2023";
 
 package grpc;
 
-option go_package = "github.com/alxaxenov/url-shortener/tree/v2/internal/handler/grpc/pb";
+option go_package = "github.com/alxaxenov/url-shortener/tree/v2/internal/handler/grpchandler/pb";
 
 import "google/protobuf/empty.proto";
 

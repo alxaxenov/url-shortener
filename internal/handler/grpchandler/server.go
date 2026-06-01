@@ -1,4 +1,4 @@
-package grpc
+package grpchandler
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/alxaxenov/url-shortener/tree/v2/internal/handler/grpc/pb"
+	"github.com/alxaxenov/url-shortener/tree/v2/internal/handler/grpchandler/pb"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/logger"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/model"
 	"github.com/alxaxenov/url-shortener/tree/v2/internal/service"
@@ -30,7 +30,7 @@ type AuditPublisher interface {
 	Publish(action audit.ActionType, userID int, URL string)
 }
 
-type ITokenParser interface {
+type ITokenManager interface {
 	GetUserID(tokenString string) (int, error)
 }
 
@@ -41,12 +41,12 @@ type ShortenerServer struct {
 	audit   AuditPublisher
 }
 
-func NewGRPCServer(addr string, srv IShortenerService, audit AuditPublisher, tokenParser ITokenParser) (*grpc.Server, net.Listener, error) {
+func NewGRPCServer(addr string, srv IShortenerService, audit AuditPublisher, tokenManager ITokenManager) (*grpc.Server, net.Listener, error) {
 	lis, err := net.Listen("tcp", addr)
 	if err != nil {
 		return nil, nil, fmt.Errorf("NewGRPCServer Listen error %w", err)
 	}
-	userInterceptor := UserIDInterceptor(tokenParser)
+	userInterceptor := UserIDInterceptor(tokenManager)
 	s := grpc.NewServer(grpc.UnaryInterceptor(userInterceptor))
 	pb.RegisterShortenerServiceServer(s, &ShortenerServer{service: srv, audit: audit})
 	return s, lis, nil
@@ -57,7 +57,7 @@ func (s *ShortenerServer) ShortenURL(ctx context.Context, in *pb.URLShortenReque
 
 	userID, err := utils.GetUserID(ctx)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, err.Error())
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 
 	var respErr error
@@ -105,7 +105,7 @@ func (s *ShortenerServer) ExpandURL(ctx context.Context, in *pb.URLExpandRequest
 func (s *ShortenerServer) ListUserURLs(ctx context.Context, _ *emptypb.Empty) (*pb.UserURLsResponse, error) {
 	userID, err := utils.GetUserID(ctx)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, err.Error())
+		return nil, status.Error(codes.Internal, "userId context find error")
 	}
 
 	data, err := s.service.UserURLs(ctx, userID)
@@ -120,14 +120,14 @@ func (s *ShortenerServer) ListUserURLs(ctx context.Context, _ *emptypb.Empty) (*
 	return pb.UserURLsResponse_builder{Url: repeated}.Build(), nil
 }
 
-func UserIDInterceptor(tokenParser ITokenParser) grpc.UnaryServerInterceptor {
+func UserIDInterceptor(tokenManager ITokenManager) grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 		md, ok := metadata.FromIncomingContext(ctx)
 		if !ok || len(md.Get("authorization")) == 0 {
 			return nil, status.Error(codes.Unauthenticated, `missing token`)
 		}
 		values := md.Get("authorization")
-		userID, err := tokenParser.GetUserID(values[0])
+		userID, err := tokenManager.GetUserID(values[0])
 		if err != nil {
 			return nil, status.Error(codes.Unauthenticated, `invalid token`)
 		}

@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.2
 // - protoc             v7.35.0
-// source: internal/handler/grpc/pb/service.proto
+// source: internal/handler/grpchandler/pb/service.proto
 
 package pb
 
@@ -194,5 +194,5 @@ var ShortenerService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "internal/handler/grpc/pb/service.proto",
+	Metadata: "internal/handler/grpchandler/pb/service.proto",
 }

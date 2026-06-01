@@ -15,7 +15,7 @@ type (
 		CreateUser(ctx context.Context) (int, error)
 	}
 
-	ITokenParser interface {
+	ITokenManager interface {
 		BuildTokenString(id int) (string, error)
 		GetUserID(tokenString string) (int, error)
 	}
@@ -25,12 +25,12 @@ type (
 type UserMiddleware struct {
 	CookieAuthKey string
 	UserRepo      IUserRepo
-	TokenParser   ITokenParser
+	TokenManager  ITokenManager
 }
 
 // NewUserMiddleware конструктор UserMiddleware.
-func NewUserMiddleware(userRepo IUserRepo, tokenParser ITokenParser) *UserMiddleware {
-	return &UserMiddleware{CookieAuthKey: config.CookieAuthKey, UserRepo: userRepo, TokenParser: tokenParser}
+func NewUserMiddleware(userRepo IUserRepo, tokenManager ITokenManager) *UserMiddleware {
+	return &UserMiddleware{CookieAuthKey: config.CookieAuthKey, UserRepo: userRepo, TokenManager: tokenManager}
 }
 
 // Use основная логика middleware.
@@ -42,7 +42,7 @@ func (m *UserMiddleware) Use(next http.Handler) http.Handler {
 		var userID int
 
 		if err == nil {
-			userID, err = m.TokenParser.GetUserID(cookie.Value)
+			userID, err = m.TokenManager.GetUserID(cookie.Value)
 			if err == nil && userID == 0 {
 				http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 				return
@@ -57,7 +57,7 @@ func (m *UserMiddleware) Use(next http.Handler) http.Handler {
 				http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 				return
 			}
-			token, err := m.TokenParser.BuildTokenString(newID)
+			token, err := m.TokenManager.BuildTokenString(newID)
 			if err != nil {
 				logger.Logger.Errorf("Failed to build token string: %v", err)
 				http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
